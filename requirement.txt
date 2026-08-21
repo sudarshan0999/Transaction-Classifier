@@ -1,0 +1,18 @@
+# PDF & Table Extraction
+camelot-py[cv]
+pypdfium2
+openpyxl
+
+# Core Scientific & Data Processing
+# Note: numpy<2 ensures compatibility with compiled C-extensions in camelot and dependencies
+numpy<2,>=1.26.0
+pandas
+
+# Embeddings & Clustering
+nomic
+scikit-learn
+matplotlib
+
+# Optional: Local Embeddings & Notebook Support
+sentence-transformers
+ipykernel

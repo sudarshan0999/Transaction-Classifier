@@ -56,7 +56,7 @@ def resolve_target_column(df, target_col):
     )
 
 def generate_and_save_embeddings(
-    input_file="extracted.xlsx",
+    input_file=r"filtered_only description.xlsx",
     target_column="Description",
     output_npy="embeddings.npy",
     model_name="nomic-ai/nomic-embed-text-v1.5"
@@ -96,9 +96,9 @@ def main():
     # -------------------------------------------------------------
     # CONFIGURATION
     # -------------------------------------------------------------
-    input_file = "extracted.xlsx"       # Path to Excel file
+    input_file = "filtered_only description.xlsx"       # Path to Excel file
     target_column = "Description"       # Column name or index to embed
-    output_npy = "embeddings.npy"       # Output .npy file path
+    output_npy = "description_only_embeddings.npy"       # Output .npy file path
     # -------------------------------------------------------------
 
     generate_and_save_embeddings(

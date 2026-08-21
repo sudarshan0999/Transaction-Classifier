@@ -200,7 +200,7 @@ def main():
     # CONFIGURATION: Set your target column and number of clusters
     # -------------------------------------------------------------
     target_column = "Description"   # Can be 'Description', 3, 'Txn Date', etc.
-    n_clusters = 2                  # Number of clusters
+    n_clusters = 4                  # Number of clusters
     # -------------------------------------------------------------
 
     # 1. Load Excel Data

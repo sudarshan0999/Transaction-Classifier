@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.cluster import KMeans
 from sklearn.decomposition import TruncatedSVD
 
@@ -95,7 +95,48 @@ def perform_kmeans_clustering(df, column_name, n_clusters=4):
         cluster_keywords[i] = ", ".join(top_terms)
         print(f"Cluster {i}: {cluster_keywords[i]}")
 
-    return df, X, kmeans, cluster_keywords
+    return df, X, kmeans, cluster_keywords, resolved_col
+
+def export_cluster_keywords(df, column_name, n_clusters, output_txt="clustering.txt"):
+    """
+    Extracts all keywords and their frequencies for each cluster and writes them into clustering.txt.
+    """
+    with open(output_txt, "w", encoding="utf-8") as f:
+        f.write("=" * 80 + "\n")
+        f.write("                 K-MEANS CLUSTERING KEYWORDS & FREQUENCY REPORT\n")
+        f.write("=" * 80 + "\n\n")
+
+        for cluster_id in range(n_clusters):
+            cluster_rows = df[df['Cluster'] == cluster_id]
+            cluster_size = len(cluster_rows)
+            
+            f.write("=" * 80 + "\n")
+            f.write(f"CLUSTER {cluster_id} (Total Records: {cluster_size})\n")
+            f.write("=" * 80 + "\n")
+            f.write(f"{'Keyword':<40} | {'Frequency':<10}\n")
+            f.write("-" * 80 + "\n")
+
+            if cluster_size == 0:
+                f.write("No records in this cluster.\n\n")
+                continue
+
+            text_data = cluster_rows[column_name].astype(str).fillna('')
+            cv = CountVectorizer(stop_words='english')
+            try:
+                word_counts = cv.fit_transform(text_data)
+                sum_words = word_counts.sum(axis=0)
+                words_freq = [(word, int(sum_words[0, idx])) for word, idx in cv.vocabulary_.items()]
+                # Sort keywords by frequency in descending order
+                words_freq = sorted(words_freq, key=lambda x: x[1], reverse=True)
+
+                for word, freq in words_freq:
+                    f.write(f"{word:<40} | {freq:<10}\n")
+            except ValueError:
+                f.write("No distinctive keywords found.\n")
+
+            f.write("\n\n")
+
+    print(f"\nAll cluster keywords with frequencies written to: '{output_txt}'")
 
 def plot_clusters(X, labels, n_clusters):
     """
@@ -168,7 +209,7 @@ def main():
     print(f"Available columns: {list(df.columns)}")
     
     # 2. Perform K-Means Clustering on the specified column
-    clustered_df, X, kmeans, cluster_keywords = perform_kmeans_clustering(
+    clustered_df, X, kmeans, cluster_keywords, resolved_col = perform_kmeans_clustering(
         df, column_name=target_column, n_clusters=n_clusters
     )
 
@@ -177,7 +218,10 @@ def main():
     clustered_df.to_excel(output_excel, index=False)
     print(f"\nClustered dataset successfully saved to: {output_excel}")
 
-    # 4. Display the plot
+    # 4. Write all cluster keywords & frequencies to clustering.txt
+    export_cluster_keywords(clustered_df, column_name=resolved_col, n_clusters=n_clusters, output_txt="clustering.txt")
+
+    # 5. Display the plot
     plot_clusters(X, clustered_df['Cluster'], n_clusters)
 
 if __name__ == "__main__":

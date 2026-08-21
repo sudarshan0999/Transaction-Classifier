@@ -1,50 +1,111 @@
 import os
+import pandas as pd
 import numpy as np
+from sentence_transformers import SentenceTransformer
 
-# =========================================================================
-# Method 1: Using Nomic API (Official nomic package)
-# =========================================================================
-# To use the Nomic API:
-# 1. Get a free API key at https://atlas.nomic.ai/
-# 2. Run in terminal: nomic login <your-api-token>
-#    OR set it via environment variable below:
-# os.environ["NOMIC_API_KEY"] = "nk-..."
-
-from nomic import embed
-
-text_to_embed = "Sudarshan Ponkia"
-
-try:
-    print(f"Generating embedding for: '{text_to_embed}' using Nomic API...")
+def load_data(file_path="extracted.xlsx"):
+    """Loads the Excel file (checks for extracted.xlsx or fallback to extracted_full.xlsx)."""
+    if not os.path.exists(file_path):
+        fallback = "extracted_full.xlsx"
+        if os.path.exists(fallback):
+            print(f"'{file_path}' not found. Using '{fallback}' instead.")
+            file_path = fallback
+        else:
+            raise FileNotFoundError(f"Neither '{file_path}' nor '{fallback}' was found.")
     
-    # Task types: 'search_document', 'search_query', 'classification', 'clustering'
-    output = embed.text(
-        texts=[text_to_embed],
-        model="nomic-embed-text-v1.5",
-        task_type="search_document"
+    print(f"Loading data from: {file_path}")
+    df = pd.read_excel(file_path)
+    return df, file_path
+
+def resolve_target_column(df, target_col):
+    """
+    Finds the target column whether given as:
+    1. An exact column name in df.columns
+    2. An integer index (e.g. 0, 3) or string digit ('3')
+    3. A text value found inside the table's header rows (e.g. 'Description', 'Narration', 'Txn Date')
+    """
+    if target_col in df.columns:
+        return target_col
+    
+    cols_str = {str(c).lower().strip(): c for c in df.columns}
+    target_str = str(target_col).lower().strip()
+    if target_str in cols_str:
+        return cols_str[target_str]
+
+    if isinstance(target_col, int) and target_col < len(df.columns):
+        return df.columns[target_col]
+    if isinstance(target_col, str) and target_col.isdigit():
+        idx = int(target_col)
+        if idx < len(df.columns):
+            return df.columns[idx]
+
+    for col in df.columns:
+        matching = df[df[col].astype(str).str.lower().str.strip() == target_str]
+        if not matching.empty:
+            print(f"Found header '{target_col}' inside table data -> Mapped to Column {col}")
+            return col
+
+    for col in df.columns:
+        matching = df[df[col].astype(str).str.lower().str.contains(target_str, na=False)]
+        if not matching.empty:
+            print(f"Matched '{target_col}' in Column {col}")
+            return col
+
+    raise ValueError(
+        f"Could not find column '{target_col}'. Available columns in Excel: {list(df.columns)}"
     )
 
-    embedding_vector = output["embeddings"][0]
-    print("\n✅ Successfully generated embedding!")
-    print(f"Dimensions: {len(embedding_vector)}")
-    print(f"Sample values (first 5): {embedding_vector[:5]}")
-    print(f"Output shape: {np.array(output['embeddings']).shape}")
+def generate_and_save_embeddings(
+    input_file="extracted.xlsx",
+    target_column="Description",
+    output_npy="embeddings.npy",
+    model_name="nomic-ai/nomic-embed-text-v1.5"
+):
+    """
+    Reads the Excel file, extracts text from the target column, generates
+    Nomic Embeddings locally using SentenceTransformers, and saves them to a .npy file.
+    """
+    # 1. Load Excel Data
+    df, resolved_path = load_data(input_file)
+    resolved_col = resolve_target_column(df, target_column)
+    
+    text_data = df[resolved_col].astype(str).fillna('').tolist()
+    print(f"Total rows to embed from column '{resolved_col}': {len(text_data)}")
 
-except Exception as e:
-    print("\n⚠️ Nomic API Authentication required:")
-    print(e)
-    print("\n👉 To authenticate, run:")
-    print("   nomic login <your-api-token>")
-    print("   or set os.environ['NOMIC_API_KEY'] = 'your_key_here'")
+    # 2. Load open-source Nomic model locally (No API key required)
+    print(f"\nLoading open-source embedding model: {model_name}...")
+    model = SentenceTransformer(model_name, trust_remote_code=True)
 
+    # 3. Add Nomic's required prefix
+    prefixed_texts = [f"search_document: {t}" if t.strip() else "search_document: empty" for t in text_data]
 
-# =========================================================================
-# Method 2: Offline / Local embedding without API key (Optional)
-# =========================================================================
-# If you want to run Nomic locally without an API key, install:
-# pip install sentence-transformers einops
-#
-# from sentence_transformers import SentenceTransformer
-# model = SentenceTransformer("nomic-ai/nomic-embed-text-v1.5", trust_remote_code=True)
-# embeddings = model.encode(["search_document: " + text_to_embed])
-# print("Local Embedding Shape:", embeddings.shape)
+    # 4. Generate embeddings
+    print("Generating embeddings...")
+    embeddings = model.encode(prefixed_texts, show_progress_bar=True)
+    embeddings = np.array(embeddings)
+
+    # 5. Save to .npy file
+    np.save(output_npy, embeddings)
+    print(f"\nSuccessfully saved embeddings to: '{output_npy}'")
+    print(f"Saved Embedding Array Shape: {embeddings.shape}")
+    print(f"Sample values (row 0, first 5 dimensions): {embeddings[0][:5]}")
+
+    return embeddings
+
+def main():
+    # -------------------------------------------------------------
+    # CONFIGURATION
+    # -------------------------------------------------------------
+    input_file = "extracted.xlsx"       # Path to Excel file
+    target_column = "Description"       # Column name or index to embed
+    output_npy = "embeddings.npy"       # Output .npy file path
+    # -------------------------------------------------------------
+
+    generate_and_save_embeddings(
+        input_file=input_file,
+        target_column=target_column,
+        output_npy=output_npy
+    )
+
+if __name__ == "__main__":
+    main()

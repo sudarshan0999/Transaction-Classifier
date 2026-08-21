@@ -1,0 +1,121 @@
+{
+    "model_name": "nomic-ai/nomic-embed-text-v1.5",
+    "classes": {
+        "Transaction Mode": {
+            "id": 1,
+            "folder_key": "1_transaction_mode",
+            "description": "Payment method, channel, or transaction rail",
+            "exemplar_count": 10,
+            "exemplars": [
+                "UPI payment Unified Payments Interface instant mobile remittance",
+                "NEFT National Electronic Funds Transfer interbank payment electronic settlement",
+                "RTGS Real Time Gross Settlement fund transfer high value payment",
+                "IMPS Immediate Payment Service 24x7 instant remittance branch transfer",
+                "CASH BNA Branch Cash Deposit Automated Machine transaction",
+                "ATM WDL ATM Cash automated teller machine cash withdrawal",
+                "Chq Paid Cheque clearing MICR Inward Clearing cheque settlement",
+                "By Clg Clearing Cheque clearing house transaction",
+                "Online Banking NetBanking digital internet transaction fee charges",
+                "Service Charges statement charges cheque book charges fee"
+            ],
+            "files": {
+                "exemplars": "1_transaction_mode.npy",
+                "centroid": "1_transaction_mode_centroid.npy"
+            }
+        },
+        "Transaction Direction": {
+            "id": 2,
+            "folder_key": "2_transaction_direction",
+            "description": "Cash flow movement indicating debit outflow or credit inflow",
+            "exemplar_count": 8,
+            "exemplars": [
+                "Dr Debit outgoing payment money debited debit transfer",
+                "Cr Credit incoming payment money credited credit received",
+                "UPI DR NEFT Dr RTGS Dr IMPS Dr Debit payment transfer out",
+                "UPI CR NEFT Cr RTGS Cr IMPS Cr Credit received transfer in",
+                "Cash Withdrawal ATM WDL funds withdrawn debit outflow payout",
+                "Cash Deposit BNA Deposit funds deposited credit inflow deposit",
+                "Chq Paid Cheque Paid amount debited outward clearing",
+                "MICR Inward Clearing By Clg credit incoming cheque clearing"
+            ],
+            "files": {
+                "exemplars": "2_transaction_direction.npy",
+                "centroid": "2_transaction_direction_centroid.npy"
+            }
+        },
+        "Transaction Purpose": {
+            "id": 3,
+            "folder_key": "3_transaction_purpose",
+            "description": "Underlying purpose, reason, or business category of the transaction",
+            "exemplar_count": 11,
+            "exemplars": [
+                "SALARY TRF Salary transfer monthly employee payroll remuneration staff pay",
+                "RENT PAYMENT MONTHLY RENT house office rent lease payment",
+                "SOFTWARE SUBSCRIPTION tech cloud software license SaaS billing",
+                "UTILITY PAYMENT electricity water gas internet telephone bill",
+                "Service Charges Online Banking Charges internet fee maintenance fee",
+                "Service Charges Cheque Book Charges cheque book issue fee",
+                "Service Charges Statement Charges bank statement request fee",
+                "Service Charges Foreign Currency Markup FX international transaction fee",
+                "INVESTMENT SERVICES mutual funds securities wealth management trading",
+                "HEALTHCARE Medical Solutions remedies pharma wellness medicines health clinic",
+                "DAILY NEEDS Retail Brands consumer essentials clothing trading products goods"
+            ],
+            "files": {
+                "exemplars": "3_transaction_purpose.npy",
+                "centroid": "3_transaction_purpose_centroid.npy"
+            }
+        },
+        "Bank / Institution": {
+            "id": 4,
+            "folder_key": "4_bank_institution",
+            "description": "Commercial bank, financial institution, branch, or clearing authority",
+            "exemplar_count": 7,
+            "exemplars": [
+                "HDFC BANK LTD commercial banking institution financial corporation",
+                "CITI BANK N.A. CIT foreign bank financial institution",
+                "ICICI Bank Ltd commercial banking corporation",
+                "State Bank of India SBI nationalized bank",
+                "Axis Bank Kotak Mahindra Bank Bank of Baroda",
+                "BNA Branch Network Automated Cash Machine bank branch",
+                "DEL ACCTS Clearing House MICR banking system institution"
+            ],
+            "files": {
+                "exemplars": "4_bank_institution.npy",
+                "centroid": "4_bank_institution_centroid.npy"
+            }
+        },
+        "Party / Counterparty": {
+            "id": 5,
+            "folder_key": "5_party_counterparty",
+            "description": "Beneficiary, payer, individual person, or corporate business counterparty",
+            "exemplar_count": 20,
+            "exemplars": [
+                "RAMESH VORA NISHA JHAVERI KETAN MODI KAVITA AMIN SEJAL DAVE NILESH DOSHI",
+                "NEHA PAREKH DHARA KOTHARI BHAVESH MODI RITU MEHTA RIDDHI BHATT ANJALI SHUKLA",
+                "POOJA BHATT RAKESH VORA PRIYA VORA DINESH PAREKH KINJAL AMIN FORAM VYAS",
+                "MANISH VYAS HIRAL PAREKH MANISH TRIVEDI SHRUTI MODI ASHISH THAKKAR MEHUL DAVE",
+                "SURESH PAREKH SURESH DESAI MEHUL PATEL FORAM AMIN ANJALI DAVE RITU PATEL",
+                "HITESH KOTHARI RAJESH VORA KAVITA GANDHI PRIYA MODI KAVITA DESAI ASHISH KOTHARI",
+                "PRIYA MEHTA HIRAL JOSHI MEHUL PANDYA JAYESH VORA BHAVESH THAKKAR SEJAL PATEL",
+                "KAVITA KOTHARI SHRUTI MEHTA ASHISH AMIN NISHA MEHTA PARESH PARIKH ANJALI PATEL",
+                "CONSUMER PRODUCTS INDIA DAILY NEEDS LIMITED WEBSTREAM LIMITED RETAIL BRANDS CORP",
+                "COURIER NETWORKS INDIA COMMERCIAL PROPERTIES INDIA CONSUMER ESSENTIALS INDIA",
+                "PROPERTY DEVELOPERS CORP FINANCIAL PRODUCTS LTD MEDICAL SOLUTIONS INDIA",
+                "TRADING HOUSE LTD URBAN CONSTRUCTIONS NETFORGE TECHNOLOGIES PREMIUM PROPERTIES LTD",
+                "FOUNDATION PROJECTS LTD DATABRIDGE INFOTECH FASHION TEXTILES LTD REMEDIES HEALTHCARE",
+                "WELLNESS BRANDS INDIA HEALTHCARE PRODUCTS LTD CYBERCRAFT SYSTEMS ESTATE BUILDERS INDIA",
+                "HEALTHPLUS PHARMA LTD GATEWAY PROJECTS LTD URBAN ESTATES INDIA MOTOR INDUSTRIES LTD",
+                "SKYLINE BUILDERS MINDWAVE CONSULTING THERMAL SYSTEMS LTD MEDCARE LABORATORIES",
+                "CLOUDTECH SERVICES VITALITY MEDICINES LTD CARGO SOLUTIONS LTD CLOTHING INDUSTRIES LTD",
+                "CITYSCAPE DEVELOPERS MECHANICAL SOLUTIONS LTD MARKET DISTRIBUTORS CORP",
+                "RESIDENTIAL PROJECTS LTD POWER SYSTEMS CORP LOAN FINANCE CORP COMMERCE SOLUTIONS LTD",
+                "BUILDING SOLUTIONS LTD WELLNESS LABS INDIA"
+            ],
+            "files": {
+                "exemplars": "5_party_counterparty.npy",
+                "centroid": "5_party_counterparty_centroid.npy"
+            }
+        }
+    }
+}

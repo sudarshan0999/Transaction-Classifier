@@ -10,6 +10,8 @@ pypdfium2
 pymupdf
 rapidocr-onnxruntime
 openpyxl
+rapidocr
+einops
 
 # Core Scientific & Data Processing
 numpy<2,>=1.26.0
@@ -20,3 +22,4 @@ scikit-learn
 matplotlib
 sentence-transformers
 nomic
+torchvision

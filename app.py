@@ -12,6 +12,19 @@ from rapidocr import RapidOCR
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+from classify_pipeline import (
+    classify_excel_dataframe,
+    classify_and_save_artifacts,
+    get_classification_engine,
+    clean_description,
+    SUB_TAXONOMY,
+    extract_transaction_mode,
+    extract_transaction_direction,
+    extract_transaction_purpose,
+    extract_bank_institution,
+    extract_counterparty
+)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Page Config
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1222,7 +1235,7 @@ def build_styled_excel(df: pd.DataFrame, metadata: dict) -> bytes:
                 # Alignment rules
                 if col_name in ["Debit", "Credit", "Balance", "Transaction Amount"]:
                     cell.alignment = Alignment(horizontal="right", vertical="center")
-                elif col_name in ["No", "Cheque No", "Branch Code", "Cr/Dr", "Value Date"]:
+                elif col_name in ["No", "Cheque No", "Branch Code", "Cr/Dr", "Value Date", "Transaction Direction", "Transaction Mode"]:
                     cell.alignment = Alignment(horizontal="center", vertical="center")
                 else:
                     cell.alignment = Alignment(horizontal="left", vertical="center")
@@ -1233,7 +1246,13 @@ def build_styled_excel(df: pd.DataFrame, metadata: dict) -> bytes:
             "Txn Date": 16, "Value Date": 16, "Cheque No": 14,
             "Description": 48, "Branch Code": 14, "Cr/Dr": 10,
             "Transaction Amount": 20, "Debit": 18, "Credit": 18, "Balance": 20,
+            "Verification Status": 22,
             "Source File": 28,
+            "Transaction Mode": 20,
+            "Transaction Direction": 18,
+            "Transaction Purpose": 25,
+            "Bank / Institution": 25,
+            "Party / Counterparty": 30,
         }
         for col_name, width in col_widths.items():
             if col_name in col_indices:
@@ -1278,39 +1297,70 @@ def build_styled_excel(df: pd.DataFrame, metadata: dict) -> bytes:
 # Sidebar
 # ─────────────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## ⚙️ Settings")
-    st.markdown("---")
-
-    dpi_val = st.slider(
-        "OCR Resolution (DPI)",
-        min_value=150, max_value=300, value=200, step=25,
-        help="Higher DPI = better accuracy but slower processing."
-    )
-
-    st.markdown("---")
-    st.markdown("### 📖 How it works")
     st.markdown(
-        """
-        1. **Upload** one or more bank statement PDFs
-        2. Each page is **auto-detected**: digital (text-layer) or scanned (image-only)
-        3. **Digital pages** → Camelot (fast, exact table parsing)
-        4. **Scanned pages** → RapidOCR (image-based OCR)
-        5. A **Mathematical Balance Engine** classifies every transaction as Debit or Credit
-        6. Download the cleaned **Excel file**
-        """
-    )
-
-    st.markdown("---")
-    st.markdown("### 🧾 Supported Formats")
-    st.info("Scanned PDFs (image-based)\nText-layer PDFs\nMulti-page statements")
-
-    st.markdown("---")
-    st.markdown(
-        "<div style='color:#3d566e;font-size:0.75rem;text-align:center;'>"
-        "BankLens v1.0 · Camelot + RapidOCR + PyMuPDF"
+        "<div style='text-align:center;padding:1rem 0 0.5rem 0;'>"
+        "<div style='font-size:2rem;'>🏦</div>"
+        "<div style='font-weight:800;font-size:1.1rem;color:#90cdf4;letter-spacing:0.06em;'>BankLens AI</div>"
+        "<div style='font-size:0.72rem;color:#4a6e8a;margin-top:0.2rem;'>Transaction Intelligence Platform</div>"
         "</div>",
         unsafe_allow_html=True,
     )
+    st.markdown("---")
+
+    dpi_val = st.slider(
+        "📷 OCR Resolution (DPI)",
+        min_value=150, max_value=300, value=200, step=25,
+        help="Higher DPI = better accuracy on scanned statements but slower."
+    )
+
+    st.markdown("---")
+    st.markdown("### 🔄 Pipeline Steps")
+    st.markdown(
+        """
+        1. **Upload** bank statement PDF(s)
+        2. **Auto-detect** page type (digital / scanned)
+        3. **Extract** table rows via Camelot or RapidOCR
+        4. **Verify** running balance mathematically
+        5. **Clean** transaction descriptions
+        6. **Embed** descriptions with Nomic AI
+        7. **Classify** 5 domain categories (Mode, Direction, Purpose, Bank, Counterparty)
+        8. **Download** the enriched Excel with all 5 columns
+        """
+    )
+
+    st.markdown("---")
+    st.markdown("### 📊 5 Classification Columns")
+    for label, vals in [
+        ("💳 Mode", "UPI · NEFT · RTGS · IMPS · ATM · Cash · Cheque · NetBanking"),
+        ("↕️ Direction", "Debit · Credit"),
+        ("🎯 Purpose", "Salary · Rent · Utility · Healthcare · Investment · SaaS…"),
+        ("🏛️ Bank", "HDFC · Citi · ICICI · SBI · Axis · Kotak…"),
+        ("👤 Counterparty", "Person / Merchant name extracted"),
+    ]:
+        st.markdown(
+            f"<div style='margin-bottom:0.5rem;'>"
+            f"<span style='color:#90cdf4;font-weight:700;font-size:0.8rem;'>{label}</span><br>"
+            f"<span style='color:#7a9eba;font-size:0.76rem;'>{vals}</span>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("---")
+    st.markdown(
+        "<div style='color:#2d4a60;font-size:0.72rem;text-align:center;'>"
+        "BankLens v2.0 · Camelot + RapidOCR + Nomic AI"
+        "</div>",
+        unsafe_allow_html=True,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Classifier Engine Cache
+# ─────────────────────────────────────────────────────────────────────────────
+@st.cache_resource(show_spinner="⚡ Loading AI Embedding Model & 5-Class Taxonomies…")
+def load_classifier_engine():
+    return get_classification_engine()
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Hero Banner
@@ -1318,21 +1368,20 @@ with st.sidebar:
 st.markdown(
     """
     <div class="hero-banner">
-        <h1>🏦 BankLens</h1>
-        <p>AI-powered bank statement parser with Mathematical Balance Verification</p>
+        <h1>🏦 BankLens AI</h1>
+        <p>Upload any bank statement PDF — get a fully structured, AI-classified Excel with 5 domain categories automatically appended to every transaction</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Upload Section
+# STEP 1: Upload
 # ─────────────────────────────────────────────────────────────────────────────
-st.markdown('<div class="step-badge">STEP 1 — Upload</div>', unsafe_allow_html=True)
-st.markdown('<div class="section-header">Upload Bank Statement PDF(s)</div>', unsafe_allow_html=True)
+st.markdown('<div class="step-badge">STEP 1 — Upload PDF Statement(s)</div>', unsafe_allow_html=True)
 
 uploaded_files = st.file_uploader(
-    "Drag and drop your bank statement PDFs here",
+    "Upload bank statement PDFs (digital or scanned)",
     type=["pdf"],
     accept_multiple_files=True,
     key="pdf_uploader",
@@ -1340,116 +1389,140 @@ uploaded_files = st.file_uploader(
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Process & Display
+# Main Pipeline: Extract → Classify → Store → Display → Download
 # ─────────────────────────────────────────────────────────────────────────────
 if uploaded_files:
     st.markdown(
-        f"<div style='color:#68d391;font-weight:600;margin-bottom:1rem;'>"
-        f"✅ {len(uploaded_files)} file(s) ready</div>",
+        f"<div style='color:#68d391;font-weight:600;margin:0.8rem 0;font-size:0.92rem;'>"
+        f"✅ {len(uploaded_files)} PDF file(s) ready for processing</div>",
         unsafe_allow_html=True,
     )
 
-    col_btn, _ = st.columns([2, 5])
+    col_btn, _ = st.columns([3, 5])
     with col_btn:
-        run_extraction = st.button("🔍 Extract Transactions", use_container_width=True)
+        run_btn = st.button(
+            "🚀 Extract & Classify Transactions",
+            use_container_width=True,
+        )
 
-    if run_extraction or st.session_state.get("extraction_done"):
+    if run_btn or st.session_state.get("pipeline_done"):
 
-        if run_extraction:
-            all_dfs     = []
-            all_meta    = {}
-            all_page_types = {}
+        # ── Phase 1: PDF Extraction ──────────────────────────────────────────
+        if run_btn:
+            st.session_state.pop("pipeline_done", None)
+            st.session_state.pop("classified_df", None)
 
-            st.markdown('<div class="step-badge">STEP 2 — Processing</div>', unsafe_allow_html=True)
-            st.markdown('<div class="section-header">Extraction Progress</div>', unsafe_allow_html=True)
+            st.markdown('<div class="step-badge">STEP 2 — Extracting Tables from PDF(s)</div>', unsafe_allow_html=True)
 
-            overall_bar = st.progress(0, text="Starting…")
-            status_area = st.empty()
+            overall_bar = st.progress(0, text="Reading PDFs…")
+            status_ph   = st.empty()
 
-            for file_idx, uploaded_file in enumerate(uploaded_files):
+            all_dfs, all_meta, all_page_types = [], {}, {}
+            n_files = len(uploaded_files)
+
+            for fi, uploaded_file in enumerate(uploaded_files):
                 pdf_bytes = uploaded_file.read()
                 file_name = uploaded_file.name
+                status_ph.info(f"📄 Parsing **{file_name}** ({fi + 1}/{n_files})…")
+                page_ph = st.empty()
 
-                status_area.info(
-                    f"📄 Processing **{file_name}** ({file_idx + 1}/{len(uploaded_files)})…"
-                )
-
-                page_prog_ph = st.empty()
-
-                def page_progress(page_idx, total, _fi=file_idx, _fn=file_name):
-                    frac = (_fi + (page_idx / total)) / len(uploaded_files)
-                    overall_bar.progress(
-                        frac,
-                        text=f"{_fn} — Page {page_idx + 1}/{total}",
-                    )
-                    page_prog_ph.markdown(
-                        f"<div style='color:#7a9eba;font-size:0.82rem;'>"
-                        f"📄 Detecting page {page_idx + 1} of {total}…</div>",
+                def page_progress(page_idx, total, _fi=fi, _fn=file_name):
+                    frac = (_fi + page_idx / total) / (n_files + 1)
+                    overall_bar.progress(frac, text=f"{_fn} — Page {page_idx + 1}/{total}")
+                    page_ph.markdown(
+                        f"<div style='color:#7a9eba;font-size:0.8rem;'>Scanning page {page_idx+1} of {total}…</div>",
                         unsafe_allow_html=True,
                     )
 
                 df_out, meta_out, page_types = extract_bank_statement(
                     pdf_bytes, dpi=dpi_val, progress_cb=page_progress
                 )
-
                 if not df_out.empty:
                     df_out.insert(0, "Source File", file_name)
                     all_dfs.append(df_out)
-
                 all_meta.update(meta_out)
                 all_page_types[file_name] = page_types
-                page_prog_ph.empty()
+                page_ph.empty()
 
-            overall_bar.progress(1.0, text="✅ Extraction complete!")
-            status_area.empty()
-
-            if all_dfs:
-                combined_df = pd.concat(all_dfs, ignore_index=True)
-                st.session_state["combined_df"]      = combined_df
-                st.session_state["all_meta"]         = all_meta
-                st.session_state["all_page_types"]   = all_page_types
-                st.session_state["extraction_done"]  = True
-            else:
-                st.warning(
-                    "⚠️ No transactions found. Please check that the PDFs contain "
-                    "recognisable bank statement tables."
-                )
+            if not all_dfs:
+                overall_bar.empty()
+                status_ph.empty()
+                st.warning("⚠️ No transactions found. Check that the PDFs contain structured bank statement tables.")
                 st.stop()
 
-        # ── Results ───────────────────────────────────────────────────────────
-        combined_df    = st.session_state.get("combined_df", pd.DataFrame())
-        all_meta       = st.session_state.get("all_meta", {})
-        all_page_types = st.session_state.get("all_page_types", {})
+            combined_raw = pd.concat(all_dfs, ignore_index=True)
 
-        if combined_df.empty:
+            # ── Phase 2: Auto-Classify Descriptions + Save Embeddings ────────
+            overall_bar.progress(0.75, text="🧠 Classifying transactions with Nomic AI…")
+            status_ph.info("🏷️ Cleaning descriptions, generating embeddings & classifying 5 domain categories…")
+
+            clf_model, sub_embs = load_classifier_engine()
+            source_label = uploaded_files[0].name if n_files == 1 else "combined_statements"
+
+            # Detect description column
+            desc_col = None
+            for col in combined_raw.columns:
+                if str(col).strip().lower() in ["description", "narration", "particulars", "transaction remarks", "details"]:
+                    desc_col = col
+                    break
+            if desc_col is None and not combined_raw.empty:
+                desc_col = combined_raw.columns[0]
+
+            classified_df, emb_path, excel_path = classify_and_save_artifacts(
+                df=combined_raw,
+                source_name=source_label,
+                output_base_dir="output",
+                model=clf_model,
+                sub_embeddings=sub_embs,
+                desc_col=desc_col,
+            )
+
+            overall_bar.progress(1.0, text="✅ All done!")
+            status_ph.empty()
+
+            st.session_state["classified_df"]    = classified_df
+            st.session_state["all_meta"]         = all_meta
+            st.session_state["saved_emb_path"]   = emb_path
+            st.session_state["saved_excel_path"] = excel_path
+            st.session_state["pipeline_done"]    = True
+
+        # ── Retrieve from session ────────────────────────────────────────────
+        classified_df    = st.session_state.get("classified_df", pd.DataFrame())
+        all_meta         = st.session_state.get("all_meta", {})
+        saved_emb_path   = st.session_state.get("saved_emb_path", "")
+        saved_excel_path = st.session_state.get("saved_excel_path", "")
+
+        if classified_df.empty:
             st.warning("No data available.")
             st.stop()
 
-        st.markdown('<div class="step-badge">STEP 3 — Results</div>', unsafe_allow_html=True)
-        st.markdown('<div class="section-header">Extraction Summary</div>', unsafe_allow_html=True)
+        # ── STEP 3: Summary Cards ────────────────────────────────────────────
+        st.markdown('<div class="step-badge">STEP 3 — Results & AI Classification Summary</div>', unsafe_allow_html=True)
 
-        debit_count  = (combined_df["Debit"]  != "").sum()
-        credit_count = (combined_df["Credit"] != "").sum()
-        total_txns   = len(combined_df)
-
-        def parse_amount(s):
+        def parse_amt(s):
             try:
-                return float(s.replace("Rs.", "").replace(",", "").strip())
+                return float(str(s).replace("Rs.", "").replace(",", "").strip())
             except Exception:
                 return 0.0
 
-        total_debit  = sum(parse_amount(v) for v in combined_df["Debit"]  if v)
-        total_credit = sum(parse_amount(v) for v in combined_df["Credit"] if v)
+        total_txns   = len(classified_df)
+        debit_count  = int((classified_df.get("Debit",  pd.Series([""])) != "").sum())
+        credit_count = int((classified_df.get("Credit", pd.Series([""])) != "").sum())
+        total_debit  = sum(parse_amt(v) for v in classified_df.get("Debit",  []) if v)
+        total_credit = sum(parse_amt(v) for v in classified_df.get("Credit", []) if v)
 
-        m1, m2, m3, m4, m5 = st.columns(5)
-        cards = [
-            (m1, str(total_txns),         "Total Transactions"),
-            (m2, str(debit_count),         "Debit Entries"),
-            (m3, str(credit_count),        "Credit Entries"),
-            (m4, f"₹{total_debit:,.2f}",   "Total Debited"),
-            (m5, f"₹{total_credit:,.2f}",  "Total Credited"),
-        ]
-        for col, val, label in cards:
+        mode_dist  = classified_df["Transaction Mode"].value_counts().to_dict()  if "Transaction Mode"  in classified_df.columns else {}
+        purp_dist  = classified_df["Transaction Purpose"].value_counts().to_dict() if "Transaction Purpose" in classified_df.columns else {}
+
+        # Row 1: transaction cards
+        c1, c2, c3, c4, c5 = st.columns(5)
+        for col, val, label in [
+            (c1, str(total_txns),                       "Total Transactions"),
+            (c2, str(debit_count),                      "Debit Entries"),
+            (c3, str(credit_count),                     "Credit Entries"),
+            (c4, f"₹{total_debit:,.0f}",                "Total Debited (₹)"),
+            (c5, f"₹{total_credit:,.0f}",               "Total Credited (₹)"),
+        ]:
             with col:
                 st.markdown(
                     f"<div class='metric-card'>"
@@ -1461,185 +1534,215 @@ if uploaded_files:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        if all_meta:
-            bank_name = all_meta.get("Bank Name", "Bank Statement")
+        # Row 2: classification distribution pills
+        if mode_dist or purp_dist:
+            d1, d2 = st.columns(2)
+            with d1:
+                st.markdown(
+                    "<div style='background:rgba(26,42,64,0.7);border:1px solid rgba(99,179,237,0.15);"
+                    "border-radius:12px;padding:0.9rem 1rem;'>"
+                    "<div style='color:#90cdf4;font-weight:700;font-size:0.8rem;letter-spacing:0.06em;margin-bottom:0.6rem;'>"
+                    "💳 TRANSACTION MODE BREAKDOWN</div>" +
+                    "".join(
+                        f"<div style='display:flex;justify-content:space-between;align-items:center;"
+                        f"padding:0.3rem 0;border-bottom:1px solid rgba(99,179,237,0.06);'>"
+                        f"<span style='color:#c8d8ea;font-size:0.82rem;'>{m}</span>"
+                        f"<span style='background:rgba(99,179,237,0.15);color:#90cdf4;font-size:0.78rem;"
+                        f"font-weight:700;padding:2px 10px;border-radius:20px;'>{cnt}</span>"
+                        f"</div>"
+                        for m, cnt in sorted(mode_dist.items(), key=lambda x: -x[1])
+                    ) +
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+            with d2:
+                st.markdown(
+                    "<div style='background:rgba(26,42,64,0.7);border:1px solid rgba(99,179,237,0.15);"
+                    "border-radius:12px;padding:0.9rem 1rem;'>"
+                    "<div style='color:#90cdf4;font-weight:700;font-size:0.8rem;letter-spacing:0.06em;margin-bottom:0.6rem;'>"
+                    "🎯 TRANSACTION PURPOSE BREAKDOWN</div>" +
+                    "".join(
+                        f"<div style='display:flex;justify-content:space-between;align-items:center;"
+                        f"padding:0.3rem 0;border-bottom:1px solid rgba(99,179,237,0.06);'>"
+                        f"<span style='color:#c8d8ea;font-size:0.82rem;'>{p}</span>"
+                        f"<span style='background:rgba(104,211,145,0.15);color:#68d391;font-size:0.78rem;"
+                        f"font-weight:700;padding:2px 10px;border-radius:20px;'>{cnt}</span>"
+                        f"</div>"
+                        for p, cnt in sorted(purp_dist.items(), key=lambda x: -x[1])
+                    ) +
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Artifact saved notice
+        if saved_emb_path:
             st.markdown(
-                f"""
-                <div style="display:flex;align-items:center;gap:12px;margin: 1.5rem 0 1rem 0;">
-                    <div class="section-header" style="margin:0;">📋 Account Information</div>
-                    <span style="background:rgba(99,179,237,0.15);border:1px solid rgba(99,179,237,0.35);color:#90cdf4;padding:4px 12px;border-radius:20px;font-size:0.82rem;font-weight:700;letter-spacing:0.04em;">🏦 {bank_name}</span>
-                </div>
-                """,
+                f"<div style='background:rgba(20,46,30,0.7);border:1px solid rgba(104,211,145,0.25);"
+                f"border-radius:10px;padding:0.7rem 1rem;margin-bottom:1rem;font-size:0.83rem;'>"
+                f"<span style='color:#68d391;font-weight:700;'>📁 Artifacts auto-saved:</span> "
+                f"<span style='color:#9ae6b4;'>Embeddings → <code>{saved_emb_path}</code> &nbsp;|&nbsp; "
+                f"Excel → <code>{saved_excel_path}</code></span>"
+                f"</div>",
                 unsafe_allow_html=True,
             )
 
-            # ── Group fields into sections ───────────────────────────────────
-            ACCOUNT_FIELDS  = ["Account Holder", "Account Number", "Customer ID", "Account Type", "Nominee"]
-            BRANCH_FIELDS   = ["Branch Name", "IFSC Code", "MICR Code"]
-            STMT_FIELDS     = ["Statement Period", "Opening Balance", "Closing Balance", "Interest Rate"]
-            CONTACT_FIELDS  = ["Email", "Mobile", "PAN"]
+        # ── Account metadata cards ────────────────────────────────────────────
+        if all_meta:
+            bank_name = all_meta.get("Bank Name", "Bank Statement")
+            st.markdown(
+                f"<div style='display:flex;align-items:center;gap:12px;margin:1.5rem 0 0.8rem 0;'>"
+                f"<div class='section-header' style='margin:0;'>📋 Account Information</div>"
+                f"<span style='background:rgba(99,179,237,0.12);border:1px solid rgba(99,179,237,0.3);"
+                f"color:#90cdf4;padding:3px 12px;border-radius:20px;font-size:0.8rem;font-weight:700;'>🏦 {bank_name}</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
 
-            def _field_row(label, value, highlight=False):
-                color = "#63b3ed" if highlight else "#c8d8ea"
+            ACCOUNT_FIELDS = ["Account Holder", "Account Number", "Customer ID", "Account Type"]
+            BRANCH_FIELDS  = ["Branch Name", "IFSC Code", "MICR Code"]
+            STMT_FIELDS    = ["Statement Period", "Opening Balance", "Closing Balance"]
+
+            def _frow(lbl, val):
                 return (
-                    f"<div style='display:flex;justify-content:space-between;"
-                    f"padding:0.45rem 0.7rem;border-bottom:1px solid rgba(99,179,237,0.08);'>"
-                    f"<span style='color:#7a9eba;font-size:0.82rem;font-weight:500;min-width:140px;'>{label}</span>"
-                    f"<span style='color:{color};font-size:0.88rem;font-weight:600;text-align:right;'>{value}</span>"
+                    f"<div style='display:flex;justify-content:space-between;padding:0.4rem 0.7rem;"
+                    f"border-bottom:1px solid rgba(99,179,237,0.07);'>"
+                    f"<span style='color:#7a9eba;font-size:0.8rem;min-width:130px;'>{lbl}</span>"
+                    f"<span style='color:#c8d8ea;font-size:0.84rem;font-weight:600;text-align:right;'>{val}</span>"
                     f"</div>"
                 )
 
-            def _section_card(title, icon, field_names):
-                rows_html = ""
-                for f in field_names:
-                    v = all_meta.get(f, "")
-                    if v:
-                        rows_html += _field_row(f, v)
-                if not rows_html:
+            def _scard(title, icon, fields):
+                rows = "".join(_frow(f, all_meta[f]) for f in fields if all_meta.get(f))
+                if not rows:
                     return ""
                 return (
-                    f"<div style='background:linear-gradient(135deg,#162030 0%,#1a2d44 100%);"
-                    f"border:1px solid rgba(99,179,237,0.18);border-radius:14px;overflow:hidden;"
-                    f"box-shadow:0 4px 20px rgba(0,0,0,0.3);'>"
-                    f"<div style='background:rgba(43,108,176,0.2);padding:0.6rem 0.8rem;"
-                    f"font-size:0.82rem;font-weight:700;color:#90cdf4;letter-spacing:0.06em;'>"
-                    f"{icon} {title}</div>"
-                    f"{rows_html}</div>"
+                    f"<div style='background:linear-gradient(135deg,#162030,#1a2d44);border:1px solid "
+                    f"rgba(99,179,237,0.15);border-radius:12px;overflow:hidden;'>"
+                    f"<div style='background:rgba(43,108,176,0.18);padding:0.55rem 0.8rem;font-size:0.78rem;"
+                    f"font-weight:700;color:#90cdf4;letter-spacing:0.05em;'>{icon} {title}</div>{rows}</div>"
                 )
 
-            # Address gets full-width treatment
+            mc1, mc2, mc3 = st.columns(3)
+            for col, title, icon, fields in [
+                (mc1, "ACCOUNT DETAILS", "👤", ACCOUNT_FIELDS),
+                (mc2, "BRANCH & CODES",  "🏦", BRANCH_FIELDS),
+                (mc3, "STATEMENT",       "📊", STMT_FIELDS),
+            ]:
+                card = _scard(title, icon, fields)
+                if card:
+                    with col:
+                        st.markdown(card, unsafe_allow_html=True)
+
             address_val = all_meta.get("Client Address") or all_meta.get("Address", "")
-            addr_html = ""
             if address_val:
-                addr_html = (
-                    f"<div style='background:linear-gradient(135deg,#162030 0%,#1a2d44 100%);"
-                    f"border:1px solid rgba(99,179,237,0.18);border-radius:14px;overflow:hidden;"
-                    f"box-shadow:0 4px 20px rgba(0,0,0,0.3);margin-top:0.8rem;padding:0.8rem 0.9rem;'>"
-                    f"<div style='font-size:0.78rem;font-weight:700;color:#90cdf4;"
-                    f"letter-spacing:0.06em;margin-bottom:0.4rem;'>📍 CLIENT ADDRESS</div>"
-                    f"<div style='color:#c8d8ea;font-size:0.88rem;line-height:1.6;'>{address_val}</div>"
-                    f"</div>"
+                st.markdown(
+                    f"<div style='background:linear-gradient(135deg,#162030,#1a2d44);border:1px solid "
+                    f"rgba(99,179,237,0.15);border-radius:12px;padding:0.75rem 0.9rem;margin-top:0.7rem;'>"
+                    f"<div style='font-size:0.76rem;font-weight:700;color:#90cdf4;margin-bottom:0.3rem;'>📍 ADDRESS</div>"
+                    f"<div style='color:#c8d8ea;font-size:0.85rem;line-height:1.5;'>{address_val}</div>"
+                    f"</div>",
+                    unsafe_allow_html=True,
                 )
-
-            col_a, col_b, col_c = st.columns(3)
-            with col_a:
-                card = _section_card("ACCOUNT DETAILS", "👤", ACCOUNT_FIELDS)
-                if card:
-                    st.markdown(card, unsafe_allow_html=True)
-            with col_b:
-                card = _section_card("BRANCH & CODES", "🏦", BRANCH_FIELDS)
-                if card:
-                    st.markdown(card, unsafe_allow_html=True)
-            with col_c:
-                card = _section_card("STATEMENT DETAILS", "📊", STMT_FIELDS)
-                if card:
-                    st.markdown(card, unsafe_allow_html=True)
-
-            contact_card = _section_card("CONTACT", "📞", CONTACT_FIELDS)
-            if contact_card or addr_html:
-                cc1, cc2 = st.columns([2, 3])
-                with cc1:
-                    if contact_card:
-                        st.markdown(contact_card, unsafe_allow_html=True)
-                with cc2:
-                    if addr_html:
-                        st.markdown(addr_html, unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-        if all_page_types:
-            with st.expander("🔍 Page Detection Report", expanded=False):
-                rows_report = []
-                for fname, ptype_dict in all_page_types.items():
-                    for pg, info in ptype_dict.items():
-                        layer  = info.get("layer",  "digital") if isinstance(info, dict) else info
-                        fmt    = info.get("format", "—")       if isinstance(info, dict) else "—"
-                        icon   = "🗔️" if layer == "scanned" else "📄"
-                        engine = "RapidOCR" if layer == "scanned" else "Camelot"
-                        rows_report.append({
-                            "File":         fname,
-                            "Page":         pg,
-                            "Layer":        f"{icon} {layer.title()}",
-                            "Engine":       engine,
-                            "Table Format": fmt,
-                        })
-                st.dataframe(
-                    pd.DataFrame(rows_report),
-                    use_container_width=True,
-                    hide_index=True,
-                )
+        # ── STEP 4: Classified Transaction Ledger ────────────────────────────
+        st.markdown('<div class="step-badge">STEP 4 — Classified Transaction Ledger</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">All Transactions with 5 AI-Classified Domain Columns</div>', unsafe_allow_html=True)
 
-        st.markdown('<div class="section-header">Transaction Table</div>', unsafe_allow_html=True)
+        display_cols = [c for c in classified_df.columns if c != "Source File"]
 
-        tab_all, tab_debit, tab_credit = st.tabs(
-            ["📋 All Transactions", "🔴 Debits Only", "🟢 Credits Only"]
+        # Search bar
+        search_q = st.text_input(
+            "🔍 Search transactions:",
+            placeholder="Search by description, mode, purpose, counterparty…",
+            label_visibility="visible",
         )
 
-        display_cols = [c for c in combined_df.columns if c != "Source File"]
+        view_df = classified_df[display_cols]
+        if search_q.strip():
+            mask = view_df.astype(str).apply(
+                lambda row: row.str.contains(search_q.strip(), case=False, regex=False).any(), axis=1
+            )
+            view_df = view_df[mask]
 
-        with tab_all:
-            st.dataframe(
-                combined_df[display_cols],
-                use_container_width=True, hide_index=True, height=420,
-            )
-        with tab_debit:
-            st.dataframe(
-                combined_df[combined_df["Debit"] != ""][display_cols].reset_index(drop=True),
-                use_container_width=True, hide_index=True, height=420,
-            )
-        with tab_credit:
-            st.dataframe(
-                combined_df[combined_df["Credit"] != ""][display_cols].reset_index(drop=True),
-                use_container_width=True, hide_index=True, height=420,
-            )
+        # 3 tabs only: All / Debits / Credits
+        t_all, t_deb, t_cr = st.tabs(["📋 All Transactions", "🔴 Debits Only", "🟢 Credits Only"])
 
-        # Download
+        debit_col  = "Debit"  if "Debit"  in classified_df.columns else None
+        credit_col = "Credit" if "Credit" in classified_df.columns else None
+
+        with t_all:
+            st.caption(f"Showing {len(view_df)} of {total_txns} transactions")
+            st.dataframe(view_df, use_container_width=True, hide_index=True, height=480)
+
+        with t_deb:
+            if debit_col:
+                deb_df = classified_df[classified_df[debit_col] != ""][display_cols].reset_index(drop=True)
+                st.caption(f"{len(deb_df)} debit transactions")
+                st.dataframe(deb_df, use_container_width=True, hide_index=True, height=440)
+            else:
+                st.info("No debit column found.")
+
+        with t_cr:
+            if credit_col:
+                cr_df = classified_df[classified_df[credit_col] != ""][display_cols].reset_index(drop=True)
+                st.caption(f"{len(cr_df)} credit transactions")
+                st.dataframe(cr_df, use_container_width=True, hide_index=True, height=440)
+            else:
+                st.info("No credit column found.")
+
+        # ── STEP 5: Download ─────────────────────────────────────────────────
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<div class="step-badge">STEP 4 — Download</div>', unsafe_allow_html=True)
-        st.markdown('<div class="section-header">Export Results</div>', unsafe_allow_html=True)
+        st.markdown('<div class="step-badge">STEP 5 — Download Classified Statement</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">Export — All 5 Domain Columns Included (No Scores)</div>', unsafe_allow_html=True)
 
-        excel_bytes = build_styled_excel(combined_df, all_meta)
+        excel_bytes = build_styled_excel(classified_df, all_meta)
 
-        dl1, dl2, _ = st.columns([2, 2, 3])
+        dl1, dl2, _ = st.columns([2, 2, 4])
         with dl1:
             st.download_button(
                 label="⬇️ Download Excel (.xlsx)",
                 data=excel_bytes,
-                file_name="bank_statement_extracted.xlsx",
+                file_name="classified_bank_statement.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
             )
         with dl2:
-            csv_bytes = combined_df.to_csv(index=False).encode("utf-8")
+            csv_bytes = classified_df.to_csv(index=False).encode("utf-8")
             st.download_button(
                 label="⬇️ Download CSV (.csv)",
                 data=csv_bytes,
-                file_name="bank_statement_extracted.csv",
+                file_name="classified_bank_statement.csv",
                 mime="text/csv",
                 use_container_width=True,
             )
 
         st.success(
-            f"🎉 Successfully extracted **{total_txns} transactions** from "
-            f"**{len(uploaded_files)} PDF(s)**. Download your file above!"
+            f"🎉 **{total_txns} transactions** extracted, classified into 5 domain categories, and ready to download!"
         )
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Empty State (no file uploaded yet)
+# ─────────────────────────────────────────────────────────────────────────────
 else:
     st.markdown(
         """
-        <div style="
-            text-align:center;
-            padding: 3rem 2rem;
-            background: rgba(13,27,42,0.6);
-            border: 1px dashed rgba(99,179,237,0.3);
-            border-radius: 16px;
-            margin-top: 1rem;
-        ">
-            <div style="font-size:3.5rem;margin-bottom:1rem;">📂</div>
-            <div style="font-size:1.1rem;font-weight:600;color:#63b3ed;">No files uploaded yet</div>
-            <div style="font-size:0.88rem;color:#4a6e8a;margin-top:0.5rem;">
-                Upload one or more bank statement PDFs to get started.<br>
-                Scanned and digital PDFs are both supported.
+        <div style="text-align:center;padding:4rem 2rem;background:rgba(10,20,35,0.5);
+            border:1px dashed rgba(99,179,237,0.25);border-radius:18px;margin-top:1.5rem;">
+            <div style="font-size:4rem;margin-bottom:1.2rem;">📂</div>
+            <div style="font-size:1.2rem;font-weight:700;color:#63b3ed;margin-bottom:0.5rem;">
+                Upload a Bank Statement PDF to Begin
+            </div>
+            <div style="font-size:0.88rem;color:#4a6e8a;line-height:1.8;max-width:520px;margin:0 auto;">
+                The pipeline will automatically:<br>
+                ① Extract all transaction rows from the PDF<br>
+                ② Verify running balance mathematically<br>
+                ③ Clean and embed transaction descriptions (saved to <code>output/embeddings/</code>)<br>
+                ④ Classify each transaction into 5 AI domains<br>
+                ⑤ Produce a downloadable Excel with all 5 columns appended
             </div>
         </div>
         """,
@@ -1651,7 +1754,8 @@ else:
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown(
     "<div class='footer-text'>"
-    "BankLens · Hybrid Engine: Camelot (digital) + RapidOCR (scanned) · Mathematical Balance Verification"
+    "BankLens AI · Hybrid Engine: Camelot (digital) + RapidOCR (scanned) · Nomic Embed Text v1.5 · 5-Class Semantic Classifier"
     "</div>",
     unsafe_allow_html=True,
 )
+

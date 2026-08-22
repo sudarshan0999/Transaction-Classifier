@@ -1,7 +1,12 @@
 .venv/
+__pycache__/
 *.pyc
 *xlsx
-*.txt
 *.npy
 *.csv
 *.npz
+
+# Allow requirements and package configuration files
+!requirements.txt
+!packages.txt
+!requirement.txt

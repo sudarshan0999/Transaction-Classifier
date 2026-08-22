@@ -5,7 +5,7 @@ streamlit>=1.30.0
 opencv-python-headless
 
 # PDF & Table Extraction
-camelot-py[cv]
+camelot-py
 pypdfium2
 pymupdf
 rapidocr-onnxruntime

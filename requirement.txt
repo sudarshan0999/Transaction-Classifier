@@ -1,8 +1,11 @@
 # Web Application
 streamlit>=1.30.0
 
+# OpenCV (Headless for cloud servers)
+opencv-python-headless
+
 # PDF & Table Extraction
-camelot-py[cv]
+camelot-py
 pypdfium2
 pymupdf
 rapidocr-onnxruntime

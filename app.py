@@ -2,7 +2,6 @@ import os
 import re
 import io
 import tempfile
-import cv2
 import numpy as np
 import pandas as pd
 import pymupdf
@@ -573,7 +572,7 @@ def _extract_full_metadata(doc, page_types: dict, dpi: int = 200) -> dict:
         try:
             ppocr_engine = load_ocr_engine()
             pix = doc[0].get_pixmap(dpi=dpi)
-            img = cv2.imdecode(np.frombuffer(pix.tobytes("png"), np.uint8), cv2.IMREAD_COLOR)
+            img = pix.tobytes("png")
             res = ppocr_engine(img)
             if res and res.txts:
                 full_text = "\n".join(res.txts)
@@ -803,9 +802,7 @@ def _extract_with_ocr(page, page_num: int, dpi: int,
     parsed_rows  = []
 
     pix = page.get_pixmap(dpi=dpi)
-    img = cv2.imdecode(
-        np.frombuffer(pix.tobytes("png"), np.uint8), cv2.IMREAD_COLOR
-    )
+    img = pix.tobytes("png")
 
     ocr_out = ppocr_engine(img)
     if ocr_out is None or ocr_out.boxes is None or len(ocr_out.boxes) == 0:

@@ -209,26 +209,58 @@ def extract_transaction_mode(text: str, emb: np.ndarray, sub_embeddings: dict) -
     return best_mode if mode_score >= 0.55 else "Other"
 
 
-def extract_transaction_direction(text: str, emb: np.ndarray, sub_embeddings: dict) -> str:
+def extract_transaction_direction(text: str, emb: np.ndarray, sub_embeddings: dict, row: dict = None) -> str:
+    """
+    Classifies Transaction Direction (Debit vs Credit).
+    1. Primary: Ground truth from ledger columns (Debit, Credit, Withdrawal, Deposit, Cr/Dr).
+    2. Fallback: If amount columns are not available, uses regex heuristics and dense embeddings.
+    """
+    # ── Level 1: Ground Truth from Table Columns (if available) ───────────────
+    if row is not None and isinstance(row, dict):
+        def _has_val(keys):
+            for k in keys:
+                v = row.get(k)
+                if v is not None and not pd.isna(v):
+                    clean_v = str(v).replace("Rs.", "").replace(",", "").strip()
+                    if clean_v not in ["", "0", "0.0", "0.00", "-", "nan", "None"]:
+                        return True
+            return False
+
+        debit_present  = _has_val(["Debit", "Withdrawal", "Withdrawal Amt.", "Withdrawal Amount", "Dr", "Debit Amt", "Debit Amount"])
+        credit_present = _has_val(["Credit", "Deposit", "Deposit Amt.", "Deposit Amount", "Cr", "Credit Amt", "Credit Amount"])
+
+        if debit_present and not credit_present:
+            return "Debit"
+        if credit_present and not debit_present:
+            return "Credit"
+
+        # Check explicit Cr/Dr flags
+        for flag_col in ["Cr/Dr", "CR/DR", "Direction", "Txn Type", "Type", "CR_DR"]:
+            flag_val = str(row.get(flag_col, "")).strip().upper()
+            if flag_val in ["CR", "CREDIT"]:
+                return "Credit"
+            if flag_val in ["DR", "DEBIT"]:
+                return "Debit"
+
+    # ── Level 2: Text Description Regex Heuristics ───────────────────────────
     txt_u = text.upper()
-    
-    # Explicit rules
-    if re.search(r'\b(CHQ PAID|CHEQUE PAID)\b', txt_u):
+    if re.search(r'\b(CHQ PAID|CHEQUE PAID|ATM WDL|WITHDRAWAL|WDL|BILLPAY DR|UPI DR|NEFT DR|RTGS DR|IMPS DR)\b', txt_u):
         return "Debit"
-    if re.search(r'\b(ATM WDL|WITHDRAWAL|WDL)\b', txt_u):
-        return "Debit"
-    if re.search(r'\b(CR|CREDIT|DEPOSIT|INWARD)\b', txt_u) and not re.search(r'\b(DR|DEBIT)\b', txt_u):
+    if re.search(r'\b(CR|CREDIT|DEPOSIT|INWARD|REFUND|SALARY TRF|UPI CR|NEFT CR|RTGS CR|IMPS CR)\b', txt_u) and not re.search(r'\b(DR|DEBIT|PAID|OUTWARD)\b', txt_u):
         return "Credit"
     if re.search(r'\b(DR|DEBIT|PAID|OUTWARD)\b', txt_u):
         return "Debit"
-        
-    # Semantic fallback
-    dir_sims = {
-        label: float(np.max(np.dot(sub_embeddings["Transaction Direction"][label], emb)))
-        for label in SUB_TAXONOMY["Transaction Direction"]
-    }
-    best_dir, dir_score = max(dir_sims.items(), key=lambda x: x[1])
-    return best_dir if dir_score >= 0.50 else "Other"
+
+    # ── Level 3: Semantic Embedding Fallback (Cosine Similarity) ─────────────
+    if emb is not None and sub_embeddings is not None and "Transaction Direction" in sub_embeddings:
+        dir_sims = {
+            label: float(np.max(np.dot(sub_embeddings["Transaction Direction"][label], emb)))
+            for label in SUB_TAXONOMY["Transaction Direction"]
+        }
+        best_dir, dir_score = max(dir_sims.items(), key=lambda x: x[1])
+        return best_dir if dir_score >= 0.50 else "Debit"
+
+    return "Debit"
 
 
 def extract_transaction_purpose(text: str, emb: np.ndarray, sub_embeddings: dict) -> str:
@@ -405,8 +437,9 @@ def classify_excel_dataframe(
 
     for i, eval_txt in enumerate(eval_texts):
         emb = norm_embeddings[i]
+        row_dict = df.iloc[i].to_dict() if i < len(df) else None
         modes.append(extract_transaction_mode(eval_txt, emb, sub_embeddings))
-        directions.append(extract_transaction_direction(eval_txt, emb, sub_embeddings))
+        directions.append(extract_transaction_direction(eval_txt, emb, sub_embeddings, row=row_dict))
         purposes.append(extract_transaction_purpose(eval_txt, emb, sub_embeddings))
         banks.append(extract_bank_institution(eval_txt, emb, sub_embeddings))
         parties.append(extract_counterparty(eval_txt))
@@ -480,12 +513,12 @@ def classify_and_save_artifacts(
     embeddings_path = os.path.join(embeddings_dir, f"{clean_stem}_description_embeddings.npy")
     np.save(embeddings_path, norm_embeddings)
 
-    # 4. Classify 5 categories (Categorical values, NO scores)
     modes, directions, purposes, banks, parties = [], [], [], [], []
     for i, eval_txt in enumerate(eval_texts):
         emb = norm_embeddings[i]
+        row_dict = df.iloc[i].to_dict() if i < len(df) else None
         modes.append(extract_transaction_mode(eval_txt, emb, sub_embeddings))
-        directions.append(extract_transaction_direction(eval_txt, emb, sub_embeddings))
+        directions.append(extract_transaction_direction(eval_txt, emb, sub_embeddings, row=row_dict))
         purposes.append(extract_transaction_purpose(eval_txt, emb, sub_embeddings))
         banks.append(extract_bank_institution(eval_txt, emb, sub_embeddings))
         parties.append(extract_counterparty(eval_txt))

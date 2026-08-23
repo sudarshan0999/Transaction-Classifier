@@ -283,12 +283,48 @@ BANK_PROFILES = [
         "keywords":   ["unity national bank", "unit0"],
         "layout_type": "schema_b",
     },
+    # ── Schema HDFC banks ────────────────────────────────────────────────────
+    {
+        "bank_id":    "hdfc",
+        "bank_name":  "HDFC Bank Limited",
+        "keywords":   ["hdfc bank", "hdfc0", "hdfc0000231", "hdfc bank limited", "hdfc"],
+        "layout_type": "schema_hdfc",
+    },
     # ── Add new banks here ───────────────────────────────────────────────────
 ]
 
 FORMAT_REGISTRY = [
     # ═══════════════════════════════════════════════════════════════════════
-    # SCHEMA B  –  Cr/Dr Flag with Txn Posted Date  (checked FIRST)
+    # SCHEMA HDFC  –  Narration, Withdrawal Amt, Deposit Amt, Closing Balance
+    # Source: unlocked_hdfc_statement.pdf  (HDFC Bank Limited)
+    # ═══════════════════════════════════════════════════════════════════════
+    {
+        "id":   "schema_hdfc",
+        "name": "Schema HDFC – Narration, Withdrawal / Deposit Amt [ref: HDFC Bank]",
+
+        # Unique discriminators present in HDFC table headers
+        "required_groups": [
+            ["narration", "description"],
+            ["withdrawal amt", "withdrawal"],
+            ["deposit amt", "deposit"],
+            ["closing balance", "balance"],
+        ],
+
+        "col_roles": {
+            "txn_date":    ["date", "txn date"],
+            "description": ["narration", "description", "particulars"],
+            "cheque":      ["chq./ref.no.", "chq", "ref.no", "cheque"],
+            "val_date":    ["value dt", "value date"],
+            "debit":       ["withdrawal amt.", "withdrawal amt", "withdrawal"],
+            "credit":      ["deposit amt.", "deposit amt", "deposit"],
+            "balance":     ["closing balance", "balance"],
+        },
+
+        "cr_dr_mode": False,
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # SCHEMA B  –  Cr/Dr Flag with Txn Posted Date  (checked SECOND)
     # Source: 00018.pdf  (INDUSBANK LIMITED, UNITY NATIONAL BANK)
     #
     # Camelot header (9 columns, exact text):
@@ -325,9 +361,7 @@ FORMAT_REGISTRY = [
             "cheque":      ["cheque no"],
             "description": ["description"],
             "cr_dr_flag":  ["cr/dr"],
-            # Camelot: 'transaction\namount' | OCR: 'amount'
             "amount":      ["transaction\namount", "transaction amount", "amount"],
-            # Camelot: 'available\nbalance'  | OCR: 'balance'
             "balance":     ["available\nbalance", "available balance", "balance"],
         },
 
@@ -335,7 +369,7 @@ FORMAT_REGISTRY = [
     },
 
     # ═══════════════════════════════════════════════════════════════════════
-    # SCHEMA A  –  Standard Debit / Credit columns  (checked SECOND)
+    # SCHEMA A  –  Standard Debit / Credit columns  (checked THIRD)
     # Source: 00007.pdf  (Velocity Banking Corporation)
     # Exact Camelot header (8 columns, index 0-7):
     #   0: Txn Date  |  1: Value Date  |  2: Cheque No.
@@ -513,21 +547,23 @@ def _extract_row_crdr(cells, col_map, amt_pattern, date_re, val_date_re):
 
 # Dispatch table: schema id → row extractor function
 _ROW_EXTRACTORS = {
-    "schema_a": _extract_row_standard,   # 00007.pdf layout (Debit / Credit columns)
-    "schema_b": _extract_row_crdr,       # 00018.pdf layout (Cr/Dr Flag + Txn Posted Date)
+    "schema_a":    _extract_row_standard,   # 00007.pdf layout (Debit / Credit columns)
+    "schema_b":    _extract_row_crdr,       # 00018.pdf layout (Cr/Dr Flag + Txn Posted Date)
+    "schema_hdfc": _extract_row_standard,   # HDFC Bank layout (Withdrawal / Deposit columns)
 }
 
 # Comprehensive metadata regex patterns
 _META_PATTERNS = {
-    "Customer ID":       r"(?:customer\s*(?:id|no|cif|number))[.:\s]+([A-Z0-9]{5,20})",
-    "Branch Name":       r"(?:branch\s*(?:name)?)[.:\s]+([A-Za-z][A-Za-z .\-]{2,50})",
-    "IFSC Code":         r"(?:ifsc\s*(?:code)?)[.:\s]+([A-Z]{4}0[A-Z0-9]{6})",
+    "Customer ID":       r"(?:customer\s*(?:id|no|cif|number)|cust\s*id)[.:\s]+([A-Z0-9]{5,20})",
+    "Branch Name":       r"(?:account\s*branch|branch\s*(?:name)?)[.:\s]+([A-Za-z][A-Za-z .\-]{2,50})",
+    "Branch Code":       r"(?:branch\s*code)[.:\s]+([0-9]{2,10})",
+    "IFSC Code":         r"(?:ifsc\s*(?:code)?|rtgs/neft\s*ifsc)[.:\s]+([A-Z]{4}0[A-Z0-9]{6})",
     "MICR Code":         r"(?:micr\s*(?:code)?)[.:\s]+(\d{9})",
-    "Account Number":    r"(?:account\s*number)[.:\s]+([0-9]{8,20})",
-    "Account Type":      r"(?:account\s*type|product\s*name)[.:\s]+([A-Za-z0-9 \-_]{3,40})",
+    "Account Number":    r"(?:account\s*(?:number|no|a/c\s*no|ac\s*no))[.:\s]+([0-9]{8,20})",
+    "Account Type":      r"(?:account\s*type|product\s*name)[.:\s]+([A-Za-z0-9 \-_/()]{3,40})",
     "Account Currency":  r"(?:account\s*currency|currency)[.:\s]+([A-Za-z]{3})",
     "Interest Rate":     r"(?:interest\s*rate)[.:\s]+([0-9.]+\s*%\s*p\.?a\.?)",
-    "Statement Period":  r"(?:searched\s*by|period|statement\s*(?:period|from))[.:\s]+(?:from\s*)?(\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s*(?:to|-)\s*\d{1,2}\s+[A-Za-z]{3}\s+\d{4}|\d{2}[/-]\d{2}[/-]\d{4}\s*(?:to|-)\s*\d{2}[/-]\d{2}[/-]\d{4})",
+    "Statement Period":  r"(?:searched\s*by|period|statement\s*(?:period|from))[.:\s]+(?:from\s*)?(\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s*(?:to|-)\s*\d{1,2}\s+[A-Za-z]{3}\s+\d{4}|\d{2}[/-]\d{2}[/-]\d{2,4}\s*(?:to|-)\s*\d{2}[/-]\d{2}[/-]\d{2,4})",
     "Opening Balance":   r"(?:opening\s*balance)[.:\s]+(?:Rs\.?\s*)?(\d[\d,]*\.\d{2})",
     "Closing Balance":   r"(?:closing\s*balance)[.:\s]+(?:Rs\.?\s*)?(\d[\d,]*\.\d{2})",
     "Email":             r"(?:email\s*(?:id)?)[.:\s]+([\w.\-+]+@[\w.\-]+\.[a-z]{2,})",
@@ -613,6 +649,16 @@ def _extract_full_metadata(doc, page_types: dict, dpi: int = 200) -> dict:
             if len(client_lines) > 1:
                 metadata["Client Address"] = ", ".join(client_lines[1:])
 
+    # Fallback Account Holder detection (e.g. MR SUDARSHAN PANKAJBHAI PONKIA)
+    if not metadata.get("Account Holder"):
+        for i, l in enumerate(lines):
+            if l.upper() in ["MR", "MRS", "MS", "DR", "M/S"] and i + 1 < len(lines):
+                metadata["Account Holder"] = l + " " + lines[i+1]
+                break
+            elif re.match(r"^(?:MR|MRS|MS|DR|M/S)\s+[A-Za-z]", l, re.IGNORECASE) and not any(k in l.lower() for k in ["branch", "bank", "statement", "joint holders"]):
+                metadata["Account Holder"] = l
+                break
+
     # 3. Regex Patterns for metadata table
     for field, pattern in _META_PATTERNS.items():
         m = re.search(pattern, full_text, re.IGNORECASE)
@@ -680,8 +726,10 @@ def _apply_math_engine(df: pd.DataFrame) -> pd.DataFrame:
     df["Credit"]  = credits
     df["Balance"] = balances
 
-    # Drop internal columns
-    drop_cols = [c for c in ["Raw_Amounts", "_direct"] if c in df.columns]
+    # Drop internal columns and empty optional fields
+    drop_cols = [c for c in ["Raw_Amounts", "_direct", "_schema"] if c in df.columns]
+    if "Branch Code" in df.columns and (df["Branch Code"].isna() | (df["Branch Code"] == "")).all():
+        drop_cols.append("Branch Code")
     if drop_cols:
         df.drop(columns=drop_cols, inplace=True)
     return df
@@ -690,7 +738,7 @@ def _apply_math_engine(df: pd.DataFrame) -> pd.DataFrame:
 # ─────────────────────────────────────────────────────────────────────────────
 # Camelot extractor  (digital / text-layer PDFs)
 # ─────────────────────────────────────────────────────────────────────────────
-def _extract_with_camelot(tmp_path: str, page_num: int,
+def _extract_with_camelot(tmp_path: str, page_num: int, page,
                           date_re, val_date_re, amt_pattern) -> list:
     """
     Run Camelot on one digital page with FORMAT_REGISTRY detection.
@@ -699,16 +747,27 @@ def _extract_with_camelot(tmp_path: str, page_num: int,
       1. Feed first 8 rows to _detect_format() → returns format + header row + col_map
       2. If format found → use the registered row-extractor (exact column positions).
       3. If no format found → regex/math-engine fallback.
+      4. If table has merged borderless rows (e.g. HDFC), use direct digital parser.
     """
     parsed_rows = []
-    chq_re    = re.compile(r"\b(\d{6})\b")
+    chq_re    = re.compile(r"\b(\d{6,16})\b")
     branch_re = re.compile(r"\b(\d{4})\b")
+
+    # If format is HDFC, extract directly via word coordinates
+    if page is not None:
+        p_text = page.get_text("text").lower()
+        if "narration" in p_text and ("withdrawal amt" in p_text or "deposit amt" in p_text):
+            hdfc_rows = _extract_digital_hdfc(page, date_re, amt_pattern)
+            if hdfc_rows:
+                return hdfc_rows
 
     try:
         tables = camelot.read_pdf(tmp_path, pages=str(page_num), flavor="lattice")
         if not tables or tables.n == 0:
             tables = camelot.read_pdf(tmp_path, pages=str(page_num), flavor="stream")
     except Exception:
+        if page is not None:
+            return _extract_digital_hdfc(page, date_re, amt_pattern)
         return parsed_rows
 
     for table in tables:
@@ -725,6 +784,11 @@ def _extract_with_camelot(tmp_path: str, page_num: int,
 
         # ── Path A: known format detected → use registered row extractor ────────
         if fmt is not None:
+            if fmt["id"] == "schema_hdfc" and page is not None:
+                hdfc_rows = _extract_digital_hdfc(page, date_re, amt_pattern)
+                if hdfc_rows:
+                    return hdfc_rows
+
             extractor = _ROW_EXTRACTORS.get(fmt["id"])
             if extractor:
                 data_rows = df_raw.iloc[header_row_idx + 1:]
@@ -778,6 +842,12 @@ def _extract_with_camelot(tmp_path: str, page_num: int,
                 "_direct":     False,
                 "Raw_Amounts": amounts,
             })
+
+    if len(parsed_rows) <= 1 and page is not None:
+        hdfc_rows = _extract_digital_hdfc(page, date_re, amt_pattern)
+        if len(hdfc_rows) > len(parsed_rows):
+            return hdfc_rows
+
     return parsed_rows
 
 
@@ -928,20 +998,116 @@ def _extract_with_ocr(page, page_num: int, dpi: int,
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Direct PyMuPDF Extractor for Borderless Statements (e.g. HDFC Bank)
+# ─────────────────────────────────────────────────────────────────────────────
+def _extract_digital_hdfc(page, date_re, amt_pattern) -> list:
+    """
+    Direct PyMuPDF word-position parser for borderless HDFC Bank statements.
+    Extracts transactions, joins multi-line descriptions, and maps debit/credit.
+    """
+    words = page.get_text("words")
+    if not words:
+        return []
+    words.sort(key=lambda w: (w[1], w[0]))
+
+    lines = []
+    curr_line, curr_y = [], None
+    for w in words:
+        if w[1] < 225 or w[1] > 775:
+            continue
+        y = w[1]
+        if curr_y is None or abs(y - curr_y) < 6:
+            curr_line.append(w)
+            curr_y = y if curr_y is None else (curr_y + y) / 2
+        else:
+            curr_line.sort(key=lambda x: x[0])
+            lines.append(curr_line)
+            curr_line = [w]
+            curr_y = y
+    if curr_line:
+        curr_line.sort(key=lambda x: x[0])
+        lines.append(curr_line)
+
+    amt_clean_re = re.compile(r"^(?:Rs\.?\s*)?(\d{1,3}(?:,\d{2,3})*\.\d{2}|\d+\.\d{2})$")
+    page_txns = []
+    current_txn = None
+
+    for line in lines:
+        line_str = " ".join(w[4] for w in line)
+        if any(h in line_str for h in [
+            "Date Narration", "Closing Balance", "HDFC BANK LIMITED",
+            "*Closing balance", "Contents of this statement", "Registered Office",
+            "STATEMENT SUMMARY"
+        ]):
+            continue
+
+        first_w = line[0]
+        # Starts with Date in column 0 (x < 65)
+        if first_w[0] < 65 and date_re.search(first_w[4]):
+            if current_txn:
+                page_txns.append(current_txn)
+
+            txn_date = first_w[4]
+            val_date = ""
+            chq_ref  = ""
+            debit    = ""
+            credit   = ""
+            balance  = ""
+            desc_parts = []
+
+            for w in line[1:]:
+                x0, text = w[0], w[4]
+                if 65 <= x0 < 280:
+                    desc_parts.append(text)
+                elif 280 <= x0 < 355:
+                    chq_ref = text if not chq_ref else chq_ref + " " + text
+                elif 355 <= x0 < 400:
+                    val_date = text
+                elif 400 <= x0 < 480 and amt_clean_re.match(text.strip()):
+                    debit = text
+                elif 480 <= x0 < 550 and amt_clean_re.match(text.strip()):
+                    credit = text
+                elif 550 <= x0 < 640 and amt_clean_re.match(text.strip()):
+                    balance = text
+
+            current_txn = {
+                "Txn Date":    txn_date,
+                "Value Date":  val_date,
+                "Cheque No":   chq_ref,
+                "Description": " ".join(desc_parts),
+                "Debit":       f"Rs. {debit}" if debit else "",
+                "Credit":      f"Rs. {credit}" if credit else "",
+                "Balance":     f"Rs. {balance}" if balance else "",
+                "_direct":     True,
+                "_schema":     "schema_hdfc",
+            }
+        else:
+            if current_txn:
+                cont_parts = [w[4] for w in line if 65 <= w[0] < 280 or (w[0] < 65 and not date_re.search(w[4]))]
+                if cont_parts:
+                    current_txn["Description"] += " " + " ".join(cont_parts)
+
+    if current_txn:
+        page_txns.append(current_txn)
+
+    return page_txns
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main Extraction Orchestrator  (Hybrid: Camelot for digital, OCR for scanned)
 # ─────────────────────────────────────────────────────────────────────────────
 def extract_bank_statement(pdf_bytes: bytes, dpi: int = 200, progress_cb=None):
     """
     Hybrid extractor:
-      - Digital pages  → Camelot (column-header-aware)
+      - Digital pages  → Camelot (column-header-aware) with borderless PyMuPDF fallback
       - Scanned pages  → RapidOCR (image-based OCR)
     Returns (df, metadata_dict, page_types_dict).
     """
-    date_re     = re.compile(r"(\d{2}[-/]\d{2}[-/]\d{4})")
-    val_date_re = re.compile(r"(\d{2}\s+[A-Za-z]{3}\s+\d{4})")
-    chq_re      = re.compile(r"\b(\d{6})\b")
+    date_re     = re.compile(r"(\d{2}[-/]\d{2}[-/]\d{2,4})")
+    val_date_re = re.compile(r"(\d{2}\s+[A-Za-z]{3}\s+\d{4}|\d{2}[-/]\d{2}[-/]\d{2,4})")
+    chq_re      = re.compile(r"\b(\d{6,16})\b")
     branch_re   = re.compile(r"\b(\d{4})\b")
-    amt_pattern = re.compile(r"(?:Rs\.?\s*)?(\d{1,3}(?:,\d{2,3})*\.\d{2})")
+    amt_pattern = re.compile(r"(?:Rs\.?\s*)?(\d{1,3}(?:,\d{2,3})*\.\d{2}|\d+\.\d{2})")
 
     parsed_rows = []
     page_types  = {}   # page_num -> {"layer": "scanned"|"digital", "format": str}
@@ -973,7 +1139,7 @@ def extract_bank_statement(pdf_bytes: bytes, dpi: int = 200, progress_cb=None):
                 )
             else:
                 rows = _extract_with_camelot(
-                    tmp_path, page_num,
+                    tmp_path, page_num, page,
                     date_re, val_date_re, amt_pattern
                 )
 
@@ -981,10 +1147,12 @@ def extract_bank_statement(pdf_bytes: bytes, dpi: int = 200, progress_cb=None):
             detected_fmt = "Fallback (Math Engine)"
             for r in rows:
                 if r.get("_direct"):
-                    # Infer from presence of cr_dr_flag or standard columns
-                    has_sep = r.get("Debit") != "" or r.get("Credit") != ""
-                    # We know if Format B was used there's no Branch Code
-                    detected_fmt = "Format B – Cr/Dr Flag" if not r.get("Branch Code") and r.get("_direct") else "Format A – Standard"
+                    if r.get("_schema") == "schema_hdfc" or ("Cheque No" in r and "Value Date" in r and (r.get("Debit") != "" or r.get("Credit") != "") and not r.get("Branch Code") and not r.get("Cr/Dr")):
+                        detected_fmt = "Schema HDFC – Withdrawal / Deposit"
+                    elif not r.get("Branch Code") and r.get("Cr/Dr"):
+                        detected_fmt = "Format B – Cr/Dr Flag"
+                    else:
+                        detected_fmt = "Format A – Standard"
                     break
 
             page_types[page_num] = {"layer": layer, "format": detected_fmt}

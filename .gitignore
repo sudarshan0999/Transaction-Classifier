@@ -37,7 +37,10 @@ Thumbs.db
 .idea/
 
 # ==============================================================================
-# Allowed Configuration Files (Explicit Whitelist)
+# Allowed Configuration & Sample Outputs (Explicit Whitelist)
 # ==============================================================================
 !requirements.txt
 !packages.txt
+!output/
+!output/classified_statements/
+!output/classified_statements/unlocked_hdfc_statement_classified_transactions.xlsx

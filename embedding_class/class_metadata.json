@@ -1,121 +1,302 @@
 {
     "model_name": "nomic-ai/nomic-embed-text-v1.5",
+    "trained_on": "real_data + base_taxonomy_merged",
     "classes": {
         "Transaction Mode": {
             "id": 1,
             "folder_key": "1_transaction_mode",
-            "description": "Payment method, channel, or transaction rail",
-            "exemplar_count": 10,
-            "exemplars": [
-                "UPI payment Unified Payments Interface instant mobile remittance",
-                "NEFT National Electronic Funds Transfer interbank payment electronic settlement",
-                "RTGS Real Time Gross Settlement fund transfer high value payment",
-                "IMPS Immediate Payment Service 24x7 instant remittance branch transfer",
-                "CASH BNA Branch Cash Deposit Automated Machine transaction",
-                "ATM WDL ATM Cash automated teller machine cash withdrawal",
-                "Chq Paid Cheque clearing MICR Inward Clearing cheque settlement",
-                "By Clg Clearing Cheque clearing house transaction",
-                "Online Banking NetBanking digital internet transaction fee charges",
-                "Service Charges statement charges cheque book charges fee"
-            ],
-            "files": {
-                "exemplars": "1_transaction_mode.npy",
-                "centroid": "1_transaction_mode_centroid.npy"
+            "labels": {
+                "UPI": [
+                    "UPI payment Unified Payments Interface instant mobile remittance",
+                    "UPI CR UPI DR UPI-TRANSFER mobile barcode payment",
+                    "upi rameshbhai raijibhai paramararamesak umararaijibhaip okicici 1052 06124259 upi",
+                    "upi astro arun pandit pr astroarunpandit 892944 rzp rxaxis 11 kundalireport",
+                    "upi reliance retail limi jpsl jp21000010 04425281 jiopay sent using paytm",
+                    "upi one97 communications poweraccess tm3 axisbank we lcome back rewar",
+                    "upi metro brands ltd metrobrandsltd77183 rzp rxairtel metrobrandsltd",
+                    "upi bhargav zalavaiya bhargavpatel69148 okhdfcbank up send money"
+                ],
+                "NEFT": [
+                    "NEFT National Electronic Funds Transfer interbank payment electronic settlement",
+                    "NEFT Dr NEFT Cr interbank remittance",
+                    "neft cr zerodha broking ltd dscnb ponkia sudarshan",
+                    "neft loan disbursement consumer products india",
+                    "neft loan disbursement finance solutions india",
+                    "reversal neft urban estates india",
+                    "neft cr consumer essentials india",
+                    "neft precision engineering works"
+                ],
+                "RTGS": [
+                    "RTGS Real Time Gross Settlement fund transfer high value payment",
+                    "RTGS Dr RTGS Cr high value settlement",
+                    "failed insufficient funds rtgs dr cnrbr894402422411 kinjal amin none",
+                    "rtgs cr icicr943375445599 investme nt services india urgent",
+                    "rtgs cr icicr474872037360 investme nt services india urgent",
+                    "rtgs cr icicr366090552313 premium infrastructure urgent",
+                    "rtgs cr icicr542957782860 estate builders india urgent",
+                    "rtgs cr icicr551466677126 healthc products ltd urgent"
+                ],
+                "IMPS": [
+                    "IMPS Immediate Payment Service 24x7 instant remittance branch transfer",
+                    "IMPS Dr IMPS Cr IMPS BRN instant transfer",
+                    "imps zerodha broking limite dscnb account yesb 9e8 2b19d10 zerodha payout",
+                    "imps amazon seller services pvt ltd hsbc pcxuwyxorudtn nqc16200021595001c",
+                    "imps brn salary mechanical solutions ltd",
+                    "imps finzen technol ogy priv ratn payout",
+                    "imps brn salary consumer products india",
+                    "imps brn salary foundation projects ltd"
+                ],
+                "ATM": [
+                    "ATM WDL ATM Cash automated teller machine cash withdrawal",
+                    "ATM Cash Withdrawal self cash payout ATM",
+                    "atm wdl atm cash 63232",
+                    "atm wdl atm cash 41736",
+                    "atm wdl atm cash 96012",
+                    "atm wdl atm cash 10945"
+                ],
+                "Cash / BNA": [
+                    "CASH BNA Branch Cash Deposit Automated Machine transaction",
+                    "Cash Deposit BNA Deposit cash counter branch teller",
+                    "cash deposit self samarpan circle jamnagar",
+                    "cash deposit samarpan cir cle jamnagar",
+                    "reversal cash deposit anitha reddy",
+                    "cash withdrawal kavitha murthy",
+                    "cash withdrawal karthik murthy",
+                    "cash withdrawal venkatesh nair"
+                ],
+                "Cheque / Clearing": [
+                    "Chq Paid Cheque clearing MICR Inward Clearing cheque settlement",
+                    "By Clg Clearing Cheque clearing house outward clearing",
+                    "chq paid micr inward clearing bhavesh thakkar hdfc bank ltd",
+                    "chq paid micr inward clearing kavita kothari hdfc bank ltd",
+                    "chq paid micr inward clearing paresh parikh hdfc bank ltd",
+                    "chq paid micr inward clearing dinesh parekh hdfc bank ltd",
+                    "chq paid micr inward clearing dhara thakkar hdfc bank ltd",
+                    "chq paid micr inward clearing rakesh patel hdfc bank ltd"
+                ],
+                "NetBanking": [
+                    "Online Banking NetBanking digital internet transaction fee charges",
+                    "NetBanking portal web transaction fund transfer",
+                    "ib billpay dr hdfc9r nbvyh2zzggm4ebdg",
+                    "ib billpay dr hdfc9r"
+                ],
+                "Bank Charges": [
+                    "Service Charges statement charges cheque book charges fee",
+                    "Maintenance charges annual fee SMS charges markup fee",
+                    "service foreign currency markup",
+                    "service account maintenance",
+                    "service online banking",
+                    "service sms alert"
+                ]
             }
         },
         "Transaction Direction": {
             "id": 2,
             "folder_key": "2_transaction_direction",
-            "description": "Cash flow movement indicating debit outflow or credit inflow",
-            "exemplar_count": 8,
-            "exemplars": [
-                "Dr Debit outgoing payment money debited debit transfer",
-                "Cr Credit incoming payment money credited credit received",
-                "UPI DR NEFT Dr RTGS Dr IMPS Dr Debit payment transfer out",
-                "UPI CR NEFT Cr RTGS Cr IMPS Cr Credit received transfer in",
-                "Cash Withdrawal ATM WDL funds withdrawn debit outflow payout",
-                "Cash Deposit BNA Deposit funds deposited credit inflow deposit",
-                "Chq Paid Cheque Paid amount debited outward clearing",
-                "MICR Inward Clearing By Clg credit incoming cheque clearing"
-            ],
-            "files": {
-                "exemplars": "2_transaction_direction.npy",
-                "centroid": "2_transaction_direction_centroid.npy"
+            "labels": {
+                "Debit": [
+                    "Dr Debit outgoing payment money debited debit transfer",
+                    "UPI DR NEFT Dr RTGS Dr IMPS Dr Debit payment transfer out",
+                    "Cash Withdrawal ATM WDL funds withdrawn debit outflow payout",
+                    "Chq Paid Cheque Paid amount debited outward clearing",
+                    "upi rameshbhai raijibhai paramararamesak umararaijibhaip okicici 1052 06124259 upi",
+                    "upi astro arun pandit pr astroarunpandit 892944 rzp rxaxis 11 kundalireport",
+                    "upi reliance retail limi jpsl jp21000010 04425281 jiopay sent using paytm",
+                    "upi metro brands ltd metrobrandsltd77183 rzp rxairtel metrobrandsltd",
+                    "upi bhargav zalavaiya bhargavpatel69148 okhdfcbank up send money",
+                    "upi zepto marketplace zeptonow bdpg hd fcbank zeptokir anakart"
+                ],
+                "Credit": [
+                    "Cr Credit incoming payment money credited credit received",
+                    "UPI CR NEFT Cr RTGS Cr IMPS Cr Credit received transfer in",
+                    "Cash Deposit BNA Deposit funds deposited credit inflow deposit",
+                    "MICR Inward Clearing By Clg credit incoming cheque clearing",
+                    "imps zerodha broking limite dscnb account yesb 9e8 2b19d10 zerodha payout",
+                    "imps amazon seller services pvt ltd hsbc pcxuwyxorudtn nqc16200021595001c",
+                    "upi one97 communications poweraccess tm3 axisbank we lcome back rewar",
+                    "upi google india service gpayrecharge ic ici refund requ est",
+                    "rtgs cr icicr943375445599 investme nt services india urgent",
+                    "rtgs cr icicr474872037360 investme nt services india urgent"
+                ]
             }
         },
         "Transaction Purpose": {
             "id": 3,
             "folder_key": "3_transaction_purpose",
-            "description": "Underlying purpose, reason, or business category of the transaction",
-            "exemplar_count": 11,
-            "exemplars": [
-                "SALARY TRF Salary transfer monthly employee payroll remuneration staff pay",
-                "RENT PAYMENT MONTHLY RENT house office rent lease payment",
-                "SOFTWARE SUBSCRIPTION tech cloud software license SaaS billing",
-                "UTILITY PAYMENT electricity water gas internet telephone bill",
-                "Service Charges Online Banking Charges internet fee maintenance fee",
-                "Service Charges Cheque Book Charges cheque book issue fee",
-                "Service Charges Statement Charges bank statement request fee",
-                "Service Charges Foreign Currency Markup FX international transaction fee",
-                "INVESTMENT SERVICES mutual funds securities wealth management trading",
-                "HEALTHCARE Medical Solutions remedies pharma wellness medicines health clinic",
-                "DAILY NEEDS Retail Brands consumer essentials clothing trading products goods"
-            ],
-            "files": {
-                "exemplars": "3_transaction_purpose.npy",
-                "centroid": "3_transaction_purpose_centroid.npy"
+            "labels": {
+                "Personal / P2P Transfer": [
+                    "UPI transfer to individual person friend family relative personal send money peer to peer",
+                    "Personal payment to individual private transfer friend colleague known person",
+                    "Money sent to person private individual self transfer family member",
+                    "upi rameshbhai raijibhai paramararamesak umararaijibhaip okicici 1052 06124259 upi",
+                    "upi astro arun pandit pr astroarunpandit 892944 rzp rxaxis 11 kundalireport",
+                    "upi reliance retail limi jpsl jp21000010 04425281 jiopay sent using paytm",
+                    "upi bhargav zalavaiya bhargavpatel69148 okhdfcbank up send money",
+                    "upi bhargav zalavaiya bhargavpatel69148 okhdfcbank ho me rent",
+                    "upi gujarat state road paytm 69905863 ptybl sent usin paytm"
+                ],
+                "Salary / Payroll": [
+                    "SALARY TRF Salary transfer monthly employee payroll remuneration staff pay wages bonus",
+                    "Company salary disbursement monthly remuneration IMPS BRN SALARY",
+                    "Employee salary credit payroll disbursement wages monthly salary",
+                    "imps brn salary mechanical solutions ltd",
+                    "imps brn salary consumer products india",
+                    "imps brn salary foundation projects ltd",
+                    "imps brn salary vitality medicines ltd",
+                    "imps brn salary commerce solutions ltd",
+                    "imps brn salary building solutions ltd"
+                ],
+                "Rent / Lease": [
+                    "RENT PAYMENT MONTHLY RENT house office rent lease payment commercial rent",
+                    "Property rental accommodation lease payment landlord house rent",
+                    "neft dr rent monthly rent"
+                ],
+                "Software / SaaS": [
+                    "SOFTWARE SUBSCRIPTION tech cloud software license SaaS billing IT tools web services",
+                    "Cloud hosting subscription digital license Google Apple Microsoft Adobe fee",
+                    "upi spotify ici c0dc0099 mandaterequest",
+                    "neft dr software subscription"
+                ],
+                "Utility / Bills": [
+                    "UTILITY PAYMENT electricity water gas internet broadband telephone bill mobile recharge power",
+                    "Electricity board MSEB BESCOM TNEB TORRENT TPDDL power bill payment BSNL Jio Airtel recharge",
+                    "upi bsnl kgyqde2861 ptybl 51 sent using paytm"
+                ],
+                "Bank Charges": [
+                    "Service Charges Online Banking Charges internet fee maintenance fee annual charges SMS",
+                    "Service Charges Cheque Book Statement Charges Foreign Currency Markup fee penalty",
+                    "service foreign currency markup",
+                    "service cheque bounce 866302",
+                    "service account maintenance",
+                    "service online banking",
+                    "service cheque book",
+                    "service neft rtgs"
+                ],
+                "Investment / Wealth": [
+                    "INVESTMENT SERVICES mutual funds securities wealth management trading stocks shares SIP Zerodha Groww",
+                    "Portfolio investment capital market securities dividend equity demat brokerage",
+                    "imps zerodha broking limite dscnb account yesb 9e8 2b19d10 zerodha payout",
+                    "neft cr zerodha broking ltd dscnb ponkia sudarshan",
+                    "dividend cr premium infrastructure equity shares",
+                    "dividend cr infocore technologies equity shares",
+                    "clg del accts citi bank cit trading house ltd",
+                    "neft cr trading house ltd"
+                ],
+                "Healthcare / Medical": [
+                    "HEALTHCARE Medical pharma wellness medicines clinic doctor hospital Apollo MedPlus pharmacy",
+                    "Pharmacy diagnostic lab health centre remedies medical bill doctor consultation"
+                ],
+                "Food & Dining": [
+                    "Zomato Swiggy food delivery restaurant dining cafe coffee bakery canteen mess snacks fast food",
+                    "Restaurant hotel food beverage juice centre Amul parlour tea stall eatery meal takeaway",
+                    "upi swiggy limited swiggyinstamart1onlin gpay okpayaxis upi",
+                    "upi hari krishna amul pa gpay sen using paytm",
+                    "upi sharma pan parlour paytmqr68wvy2 pty upi",
+                    "upi aadinath juice gpay okbi zaxis upi",
+                    "upi radhe juice ice cr okbi zaxis upi",
+                    "upi raghuvanshi juice ce gpay upi"
+                ],
+                "Daily Needs / Retail": [
+                    "DAILY NEEDS groceries supermarket consumer essentials Blinkit Zepto Dunzo BigBasket DMart",
+                    "Retail shopping clothing product purchase department store mall consumer goods household",
+                    "upi zepto marketplace zeptonow bdpg hd fcbank zeptokir anakart",
+                    "upi blinkit paytm blinkit ptybl yesb0ptm upi blinkit",
+                    "upi zepto marketplace pr pinelabs 103884 upi",
+                    "upi zepto marketplace bank upi"
+                ],
+                "ATM Withdrawal": [
+                    "ATM cash withdrawal automated teller machine self cash payout ATM WDL",
+                    "ATM withdrawal cash self branch ATM machine money withdrawn",
+                    "atm wdl atm cash 63232",
+                    "atm wdl atm cash 41736",
+                    "atm wdl atm cash 96012",
+                    "atm wdl atm cash 10945"
+                ],
+                "Travel & Transport": [
+                    "Uber Ola cab taxi auto IRCTC railway flight airline hotel MakeMyTrip petrol fuel booking",
+                    "Travel transport logistics cab ride airline ticket hotel stay bus KSRTC GSRTC",
+                    "upi mr vraj chandrakant ramoliyavraj142 oksbi mahadevn petrol"
+                ]
             }
         },
         "Bank / Institution": {
             "id": 4,
             "folder_key": "4_bank_institution",
-            "description": "Commercial bank, financial institution, branch, or clearing authority",
-            "exemplar_count": 7,
-            "exemplars": [
-                "HDFC BANK LTD commercial banking institution financial corporation",
-                "CITI BANK N.A. CIT foreign bank financial institution",
-                "ICICI Bank Ltd commercial banking corporation",
-                "State Bank of India SBI nationalized bank",
-                "Axis Bank Kotak Mahindra Bank Bank of Baroda",
-                "BNA Branch Network Automated Cash Machine bank branch",
-                "DEL ACCTS Clearing House MICR banking system institution"
-            ],
-            "files": {
-                "exemplars": "4_bank_institution.npy",
-                "centroid": "4_bank_institution_centroid.npy"
-            }
-        },
-        "Party / Counterparty": {
-            "id": 5,
-            "folder_key": "5_party_counterparty",
-            "description": "Beneficiary, payer, individual person, or corporate business counterparty",
-            "exemplar_count": 20,
-            "exemplars": [
-                "RAMESH VORA NISHA JHAVERI KETAN MODI KAVITA AMIN SEJAL DAVE NILESH DOSHI",
-                "NEHA PAREKH DHARA KOTHARI BHAVESH MODI RITU MEHTA RIDDHI BHATT ANJALI SHUKLA",
-                "POOJA BHATT RAKESH VORA PRIYA VORA DINESH PAREKH KINJAL AMIN FORAM VYAS",
-                "MANISH VYAS HIRAL PAREKH MANISH TRIVEDI SHRUTI MODI ASHISH THAKKAR MEHUL DAVE",
-                "SURESH PAREKH SURESH DESAI MEHUL PATEL FORAM AMIN ANJALI DAVE RITU PATEL",
-                "HITESH KOTHARI RAJESH VORA KAVITA GANDHI PRIYA MODI KAVITA DESAI ASHISH KOTHARI",
-                "PRIYA MEHTA HIRAL JOSHI MEHUL PANDYA JAYESH VORA BHAVESH THAKKAR SEJAL PATEL",
-                "KAVITA KOTHARI SHRUTI MEHTA ASHISH AMIN NISHA MEHTA PARESH PARIKH ANJALI PATEL",
-                "CONSUMER PRODUCTS INDIA DAILY NEEDS LIMITED WEBSTREAM LIMITED RETAIL BRANDS CORP",
-                "COURIER NETWORKS INDIA COMMERCIAL PROPERTIES INDIA CONSUMER ESSENTIALS INDIA",
-                "PROPERTY DEVELOPERS CORP FINANCIAL PRODUCTS LTD MEDICAL SOLUTIONS INDIA",
-                "TRADING HOUSE LTD URBAN CONSTRUCTIONS NETFORGE TECHNOLOGIES PREMIUM PROPERTIES LTD",
-                "FOUNDATION PROJECTS LTD DATABRIDGE INFOTECH FASHION TEXTILES LTD REMEDIES HEALTHCARE",
-                "WELLNESS BRANDS INDIA HEALTHCARE PRODUCTS LTD CYBERCRAFT SYSTEMS ESTATE BUILDERS INDIA",
-                "HEALTHPLUS PHARMA LTD GATEWAY PROJECTS LTD URBAN ESTATES INDIA MOTOR INDUSTRIES LTD",
-                "SKYLINE BUILDERS MINDWAVE CONSULTING THERMAL SYSTEMS LTD MEDCARE LABORATORIES",
-                "CLOUDTECH SERVICES VITALITY MEDICINES LTD CARGO SOLUTIONS LTD CLOTHING INDUSTRIES LTD",
-                "CITYSCAPE DEVELOPERS MECHANICAL SOLUTIONS LTD MARKET DISTRIBUTORS CORP",
-                "RESIDENTIAL PROJECTS LTD POWER SYSTEMS CORP LOAN FINANCE CORP COMMERCE SOLUTIONS LTD",
-                "BUILDING SOLUTIONS LTD WELLNESS LABS INDIA"
-            ],
-            "files": {
-                "exemplars": "5_party_counterparty.npy",
-                "centroid": "5_party_counterparty_centroid.npy"
+            "labels": {
+                "HDFC Bank": [
+                    "HDFC BANK LTD commercial banking institution financial corporation",
+                    "failed insufficient funds rtgs dr cnrbr894402422411 kinjal amin none",
+                    "upi bhargav zalavaiya bhargavpatel69148 okhdfcbank up send money",
+                    "upi zepto marketplace zeptonow bdpg hd fcbank zeptokir anakart",
+                    "upi bhargav zalavaiya bhargavpatel69148 okhdfcbank ho me rent",
+                    "chq paid micr inward clearing bhavesh thakkar hdfc bank ltd",
+                    "chq paid micr inward clearing kavita kothari hdfc bank ltd"
+                ],
+                "Citi Bank": [
+                    "CITI BANK N.A. CIT foreign bank financial institution",
+                    "clg del accts citi bank cit commercial properties india",
+                    "clg del accts citi bank cit consumer essentials india",
+                    "clg del accts citi bank cit market distributors corp",
+                    "clg del accts citi bank cit residential projects ltd",
+                    "clg del accts citi bank cit property developers corp",
+                    "clg del accts citi bank cit financial partners india"
+                ],
+                "ICICI Bank": [
+                    "ICICI Bank Ltd commercial banking corporation",
+                    "upi rameshbhai raijibhai paramararamesak umararaijibhaip okicici 1052 06124259 upi",
+                    "upi ayush jagdishbhai ch ayushchovatiya2 005 okicici upi",
+                    "upi jadeja kuldipsinh de jadejakuldeepsi nh1999 okicici",
+                    "upi naresh meena so manj nareshharmor10 okicici upi",
+                    "upi kunj nileshbhai vira kunjvirani7589 okicici upi",
+                    "upi spotify ici c0dc0099 mandaterequest"
+                ],
+                "State Bank of India (SBI)": [
+                    "State Bank of India SBI nationalized bank public sector",
+                    "upi jain vedant sbi n0000577 upi",
+                    "upi ratanpara sneh sbi upi",
+                    "upi nagar jayansh sbi upi"
+                ],
+                "Axis Bank": [
+                    "Axis Bank commercial banking corporation",
+                    "upi astro arun pandit pr astroarunpandit 892944 rzp rxaxis 11 kundalireport",
+                    "upi one97 communications poweraccess tm3 axisbank we lcome back rewar",
+                    "upi google play playstore axisbank utib0 000553 mandateexecute",
+                    "upi swiggy limited swiggyinstamart1onlin gpay okpayaxis upi",
+                    "upi kunj nileshbhai vira kunjvirani7589 okaxis shirt",
+                    "upi kunj nileshbhai vira kunjvirani7589 okaxis upi"
+                ],
+                "Kotak Mahindra Bank": [
+                    "Kotak Mahindra Bank commercial banking private bank",
+                    "upi shree laxminarayan 0790812a0179032 bqr kotak upi"
+                ],
+                "Bank of Baroda": [
+                    "Bank of Baroda commercial banking public sector"
+                ],
+                "Clearing House (MICR)": [
+                    "DEL ACCTS Clearing House MICR banking system institution inward outward clearing",
+                    "chq paid subramaniam murthy micr",
+                    "chq paid venkatesh murthy micr",
+                    "chq paid karthik krishnan micr",
+                    "chq paid venkatesh naidu micr",
+                    "chq paid srinivas murthy micr",
+                    "chq paid venkatesh nair micr"
+                ],
+                "Branch BNA": [
+                    "BNA Branch Network Automated Cash Machine bank branch teller",
+                    "cash bna self bhavesh trivedi",
+                    "cash bna self ashish kothari",
+                    "cash bna self anjali shukla",
+                    "cash bna self nisha jhaveri",
+                    "cash bna self bhavesh modi",
+                    "cash bna self mehul pandya"
+                ]
             }
         }
-    }
+    },
+    "class_names": [
+        "Transaction Mode",
+        "Transaction Direction",
+        "Transaction Purpose",
+        "Bank / Institution"
+    ]
 }

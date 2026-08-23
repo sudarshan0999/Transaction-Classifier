@@ -62,39 +62,55 @@ SUB_TAXONOMY = {
         ]
     },
     "Transaction Purpose": {
+        "Personal / P2P Transfer": [
+            "UPI transfer to individual person friend family relative personal send money peer to peer",
+            "Personal payment to individual private transfer friend colleague known person",
+            "Money sent to person private individual self transfer family member"
+        ],
         "Salary / Payroll": [
             "SALARY TRF Salary transfer monthly employee payroll remuneration staff pay wages bonus",
-            "Company salary disbursement monthly remuneration"
+            "Company salary disbursement monthly remuneration IMPS BRN SALARY",
+            "Employee salary credit payroll disbursement wages monthly salary"
         ],
         "Rent / Lease": [
             "RENT PAYMENT MONTHLY RENT house office rent lease payment commercial rent",
-            "Property rental accommodation lease payment"
+            "Property rental accommodation lease payment landlord house rent"
         ],
         "Software / SaaS": [
             "SOFTWARE SUBSCRIPTION tech cloud software license SaaS billing IT tools web services",
-            "Cloud hosting subscription digital license fee"
+            "Cloud hosting subscription digital license Google Apple Microsoft Adobe fee"
         ],
         "Utility / Bills": [
-            "UTILITY PAYMENT electricity water gas internet telephone bill mobile recharge power bill",
-            "Municipal water bill electricity electricity board payment"
+            "UTILITY PAYMENT electricity water gas internet broadband telephone bill mobile recharge power",
+            "Electricity board MSEB BESCOM TNEB TORRENT TPDDL power bill payment BSNL Jio Airtel recharge"
         ],
         "Bank Charges": [
-            "Service Charges Online Banking Charges internet fee maintenance fee",
-            "Service Charges Cheque Book Charges cheque book issue fee",
-            "Service Charges Statement Charges bank statement request fee",
-            "Service Charges Foreign Currency Markup FX international transaction fee"
+            "Service Charges Online Banking Charges internet fee maintenance fee annual charges SMS",
+            "Service Charges Cheque Book Statement Charges Foreign Currency Markup fee penalty"
         ],
         "Investment / Wealth": [
-            "INVESTMENT SERVICES mutual funds securities wealth management trading stocks shares SIP",
-            "Portfolio investment capital market securities"
+            "INVESTMENT SERVICES mutual funds securities wealth management trading stocks shares SIP Zerodha Groww",
+            "Portfolio investment capital market securities dividend equity demat brokerage"
         ],
         "Healthcare / Medical": [
-            "HEALTHCARE Medical Solutions remedies pharma wellness medicines health clinic doctor hospital",
-            "Pharmacy pharmaceutical remedies diagnostic healthcare"
+            "HEALTHCARE Medical pharma wellness medicines clinic doctor hospital Apollo MedPlus pharmacy",
+            "Pharmacy diagnostic lab health centre remedies medical bill doctor consultation"
+        ],
+        "Food & Dining": [
+            "Zomato Swiggy food delivery restaurant dining cafe coffee bakery canteen mess snacks fast food",
+            "Restaurant hotel food beverage juice centre Amul parlour tea stall eatery meal takeaway"
         ],
         "Daily Needs / Retail": [
-            "DAILY NEEDS Retail Brands consumer essentials clothing trading products goods groceries supermarket",
-            "Retail merchandise consumer products shopping purchase"
+            "DAILY NEEDS groceries supermarket consumer essentials Blinkit Zepto Dunzo BigBasket DMart",
+            "Retail shopping clothing product purchase department store mall consumer goods household"
+        ],
+        "ATM Withdrawal": [
+            "ATM cash withdrawal automated teller machine self cash payout ATM WDL",
+            "ATM withdrawal cash self branch ATM machine money withdrawn"
+        ],
+        "Travel & Transport": [
+            "Uber Ola cab taxi auto IRCTC railway flight airline hotel MakeMyTrip petrol fuel booking",
+            "Travel transport logistics cab ride airline ticket hotel stay bus KSRTC GSRTC"
         ]
     },
     "Bank / Institution": {
@@ -263,32 +279,176 @@ def extract_transaction_direction(text: str, emb: np.ndarray, sub_embeddings: di
     return "Debit"
 
 
-def extract_transaction_purpose(text: str, emb: np.ndarray, sub_embeddings: dict) -> str:
-    txt_u = text.upper()
-    if re.search(r'\b(SALARY|PAYROLL|WAGES|REMUNERATION)\b', txt_u):
-        return "Salary / Payroll"
-    if re.search(r'\b(RENT|LEASE)\b', txt_u):
-        return "Rent / Lease"
-    if re.search(r'\b(SUBSCRIPTION|SAAS|SOFTWARE)\b', txt_u):
-        return "Software / SaaS"
-    if re.search(r'\b(UTILITY|ELECTRICITY|GAS|WATER BILL|POWER BILL|TELEPHONE BILL)\b', txt_u):
-        return "Utility / Bills"
-    if re.search(r'\b(SERVICE CHARGES|BANK CHARGES|STATEMENT CHARGES|CHEQUE BOOK CHARGES|MARKUP|ONLINE BANKING CHARGES)\b', txt_u):
+def extract_transaction_purpose(text: str, emb: np.ndarray, sub_embeddings: dict, raw_text: str = None) -> str:
+    """
+    Classifies Transaction Purpose across 12 categories using a 3-tier strategy:
+      Tier 1: Unambiguous keyword/merchant matching on BOTH raw and cleaned text.
+      Tier 2: Person-name pattern detection on raw text for P2P (requires UPI- prefix).
+      Tier 3: Semantic embedding similarity with a strict 0.75 confidence threshold.
+
+    Args:
+      text:     The CLEANED description (used for embedding lookup).
+      emb:      The embedding vector of the cleaned text.
+      raw_text: The RAW description (used for Tier 1/2 regex, if available).
+    """
+    # Use raw text for keyword/pattern matching when available (preserves UPI- prefix, merchant names)
+    match_text = raw_text if raw_text else text
+    txt_u = match_text.upper()
+
+    # ── Tier 1A: ATM Withdrawal ─────────────────────────────────────────────
+    if re.search(r'\b(ATM WDL|ATM WITHDRAWAL|ATM CASH|ATM-WDL)\b', txt_u):
+        return "ATM Withdrawal"
+
+    # ── Tier 1B: Bank Charges (unambiguous fee keywords) ────────────────────
+    if re.search(r'\b(SERVICE CHARGES|BANK CHARGES|STATEMENT CHARGES|CHEQUE BOOK CHARGES|ANNUAL FEE|SMS CHARGES|MARKUP|ONLINE BANKING CHARGES|PROCESSING FEE|ACCOUNT MAINTENANCE)\b', txt_u):
         return "Bank Charges"
-    if re.search(r'\b(INVESTMENT|MUTUAL FUND|SECURITIES|STOCKS|SHARES|SIP)\b', txt_u):
+
+    # ── Tier 1C: Salary (unambiguous payroll keywords) ──────────────────────
+    if re.search(r'\b(SALARY|PAYROLL|WAGES|REMUNERATION|SALARY TRF|IMPS BRN SALARY|NEFT SALARY)\b', txt_u):
+        return "Salary / Payroll"
+
+    # ── Tier 1D: Investment (clear financial instrument keywords) ───────────
+    if re.search(r'\b(MUTUAL FUND|SECURITIES|SIP|ZERODHA|GROWW|UPSTOX|TRADING|DEMAT|DIVIDEND|EQUITY SHARES|NIFTY|SENSEX|STOCKS|SHARES|NSE|BSE)\b', txt_u):
         return "Investment / Wealth"
-    if re.search(r'\b(HEALTHCARE|PHARMA|REMEDIES|MEDICAL|CLINIC|HOSPITAL)\b', txt_u):
+
+    # ── Tier 1E: Healthcare (specific pharmacy/clinic brands & terms) ────────
+    if re.search(r'\b(APOLLO PHARMACY|MEDPLUS|NETMEDS|PHARMEASY|TATA MED|HEALTHKART|WELLNESS FOREVER|DIAGNOSTIC|PATHOLOGY|SCAN CENTRE|HOSPITAL|NURSING HOME)\b', txt_u):
         return "Healthcare / Medical"
-    if re.search(r'\b(DAILY NEEDS|RETAIL BRANDS|CONSUMER ESSENTIALS|GROCERIES|SUPERMARKET)\b', txt_u):
+
+    # ── Tier 1F: Food & Dining (specific food brands) ───────────────────────
+    if re.search(r'\b(ZOMATO|SWIGGY|BLINKIT FOOD|AMUL|ZEROX|PARLOUR|BAKERY|JUICE|RESTAURANT|CAFE|CANTEEN|DHABA|HOTEL FOOD|SNACKS|PIZZA|BURGER|DOMINOES|MCDONALDS|STARBUCKS|CHAAYOS)\b', txt_u):
+        return "Food & Dining"
+
+    # ── Tier 1G: Utility/Bills (specific board/provider names) ──────────────
+    if re.search(r'\b(ELECTRICITY|MSEB|BESCOM|TNEB|TORRENT POWER|TPDDL|BSES|BEST ELECTRIC|WATER BILL|GAS BILL|PIPED GAS|BROADBAND|WIFI BILL|TELEPHONE BILL|JIOFIBER|BSNL|AIRTEL FIBER|MOBILE RECHARGE|DTH RECHARGE)\b', txt_u):
+        return "Utility / Bills"
+
+    # ── Tier 1H: Rent / Lease (specific property terms) ─────────────────────
+    if re.search(r'\b(RENT PAYMENT|MONTHLY RENT|HOUSE RENT|OFFICE RENT|PROPERTY RENT|LEASE PAYMENT|LANDLORD|RENTAL DEPOSIT|ACCOMMODATION)\b', txt_u):
+        return "Rent / Lease"
+
+    # ── Tier 1I: Software / SaaS (specific tech brands) ─────────────────────
+    if re.search(r'\b(SUBSCRIPTION|SAAS|SOFTWARE LICENSE|CLOUD HOSTING|AWS|GOOGLE CLOUD|AZURE|ADOBE|GITHUB|CANVA|NETFLIX|HOTSTAR|PRIME VIDEO|SPOTIFY|DROPBOX|NOTION|SLACK|ZOOM)\b', txt_u):
+        return "Software / SaaS"
+
+    # ── Tier 1J: Daily Needs / Retail (grocery & hypermarket brands) ─────────
+    if re.search(r'\b(BIGBASKET|BLINKIT|ZEPTO|DUNZO|DMART|RELIANCE FRESH|JIOMART|GROFERS|SWIGGY INSTAMART|MORE RETAIL|SPAR|NATURA|HYPERCITY|WALMART|COSTCO)\b', txt_u):
         return "Daily Needs / Retail"
-        
-    # Semantic evaluation with strict threshold for purpose
-    purp_sims = {
-        label: float(np.max(np.dot(sub_embeddings["Transaction Purpose"][label], emb)))
-        for label in SUB_TAXONOMY["Transaction Purpose"]
-    }
-    best_purp, purp_score = max(purp_sims.items(), key=lambda x: x[1])
-    return best_purp if purp_score >= 0.62 else "General Transfer"
+
+    # ── Tier 1K: Travel & Transport ──────────────────────────────────────────
+    if re.search(r'\b(UBER|OLA CAB|RAPIDO|IRCTC|RAILWAY|AIRLINE|SPICEJET|INDIGO|AIR INDIA|MAKEMYTRIP|YATRA|OYO|GOIBIBO|PETROL|FUEL STATION|SHELL|BHARAT PETROLEUM|HP PETROL)\b', txt_u):
+        return "Travel & Transport"
+
+    # ── Tier 2: Person-name pattern detection → P2P Transfer ────────────────
+    # Works on raw text which preserves the full UPI-NAME-vpa@bank structure.
+    # UPI narration format: UPI-FIRSTNAME LASTNAME[-vpa@bank-ifsc]
+    upi_name_m = re.match(r'UPI-([A-Z][A-Z ]{3,35}?)(?:-[A-Z0-9@.]+|-[A-Z0-9]{2,}@|@|$)', txt_u)
+    if upi_name_m:
+        candidate = upi_name_m.group(1).strip()
+        words = candidate.split()
+        is_person = (
+            len(words) >= 2
+            and all(re.match(r'^[A-Z]+$', w) for w in words)
+            and not re.search(
+                r'\b(GOOGLE|AMAZON|FLIPKART|PAYTM|PHONE|HDFC|ICICI|AXIS|SBI|BANK|STORE|SHOP|MART|INDIA|PVT|LTD|CORP|ZEROX|AMUL|BLINKIT|ZOMATO|SWIGGY|DIGITAL|INDIA|SERVICES|PAYMENT|GATEWAY|NETWORK|SOLUTIONS)\b',
+                candidate
+            )
+        )
+        if is_person:
+            return "Personal / P2P Transfer"
+
+    # Non-UPI RTGS/NEFT to individuals: prefix patterns like MR FIRSTNAME LASTNAME
+    if re.search(r'\b(MR|MS|MRS|DR|SHRI|SHREE|KU|MISS)\s+[A-Z]{2,}\s+[A-Z]{2,}\b', txt_u):
+        return "Personal / P2P Transfer"
+
+    # ── Tier 3: Semantic embedding fallback with strict threshold ────────────
+    if emb is not None and sub_embeddings is not None and "Transaction Purpose" in sub_embeddings:
+        purp_sims = {
+            label: float(np.max(np.dot(sub_embeddings["Transaction Purpose"][label], emb)))
+            for label in SUB_TAXONOMY["Transaction Purpose"]
+        }
+        best_purp, purp_score = max(purp_sims.items(), key=lambda x: x[1])
+        # High threshold 0.75 to avoid false positives on ambiguous text
+        return best_purp if purp_score >= 0.75 else "General Transfer"
+
+    return "General Transfer"
+
+    # ── Tier 1A: ATM Withdrawal ─────────────────────────────────────────────
+    if re.search(r'\b(ATM WDL|ATM WITHDRAWAL|ATM CASH|ATM-WDL)\b', txt_u):
+        return "ATM Withdrawal"
+
+    # ── Tier 1B: Bank Charges (unambiguous fee keywords) ────────────────────
+    if re.search(r'\b(SERVICE CHARGES|BANK CHARGES|STATEMENT CHARGES|CHEQUE BOOK CHARGES|ANNUAL FEE|SMS CHARGES|MARKUP|ONLINE BANKING CHARGES|PROCESSING FEE|ACCOUNT MAINTENANCE)\b', txt_u):
+        return "Bank Charges"
+
+    # ── Tier 1C: Salary (unambiguous payroll keywords) ──────────────────────
+    if re.search(r'\b(SALARY|PAYROLL|WAGES|REMUNERATION|SALARY TRF|IMPS BRN SALARY|NEFT SALARY)\b', txt_u):
+        return "Salary / Payroll"
+
+    # ── Tier 1D: Investment (clear financial instrument keywords) ───────────
+    if re.search(r'\b(MUTUAL FUND|SECURITIES|SIP|ZERODHA|GROWW|UPSTOX|TRADING|DEMAT|DIVIDEND|EQUITY SHARES|NIFTY|SENSEX|STOCKS|SHARES|NSE|BSE)\b', txt_u):
+        return "Investment / Wealth"
+
+    # ── Tier 1E: Healthcare (specific pharmacy/clinic brands & terms) ────────
+    if re.search(r'\b(APOLLO PHARMACY|MEDPLUS|NETMEDS|PHARMEASY|TATA MED|HEALTHKART|WELLNESS FOREVER|DIAGNOSTIC|PATHOLOGY|SCAN CENTRE|HOSPITAL|NURSING HOME)\b', txt_u):
+        return "Healthcare / Medical"
+
+    # ── Tier 1F: Food & Dining (specific food brands) ───────────────────────
+    if re.search(r'\b(ZOMATO|SWIGGY|BLINKIT FOOD|AMUL|ZEROX|PARLOUR|BAKERY|JUICE|RESTAURANT|CAFE|CANTEEN|DHABA|HOTEL FOOD|SNACKS|PIZZA|BURGER|DOMINOES|MCDONALDS|STARBUCKS|CHAAYOS)\b', txt_u):
+        return "Food & Dining"
+
+    # ── Tier 1G: Utility/Bills (specific board/provider names) ──────────────
+    if re.search(r'\b(ELECTRICITY|MSEB|BESCOM|TNEB|TORRENT POWER|TPDDL|BSES|BEST ELECTRIC|WATER BILL|GAS BILL|PIPED GAS|BROADBAND|WIFI BILL|TELEPHONE BILL|JIOFIBER|BSNL|AIRTEL FIBER|MOBILE RECHARGE|DTH RECHARGE)\b', txt_u):
+        return "Utility / Bills"
+
+    # ── Tier 1H: Rent / Lease (specific property terms) ─────────────────────
+    if re.search(r'\b(RENT PAYMENT|MONTHLY RENT|HOUSE RENT|OFFICE RENT|PROPERTY RENT|LEASE PAYMENT|LANDLORD|RENTAL DEPOSIT|ACCOMMODATION)\b', txt_u):
+        return "Rent / Lease"
+
+    # ── Tier 1I: Software / SaaS (specific tech brands) ─────────────────────
+    if re.search(r'\b(SUBSCRIPTION|SAAS|SOFTWARE LICENSE|CLOUD HOSTING|AWS|GOOGLE CLOUD|AZURE|ADOBE|GITHUB|CANVA|NETFLIX|HOTSTAR|PRIME VIDEO|SPOTIFY|DROPBOX|NOTION|SLACK|ZOOM)\b', txt_u):
+        return "Software / SaaS"
+
+    # ── Tier 1J: Daily Needs / Retail (grocery & hypermarket brands) ─────────
+    if re.search(r'\b(BIGBASKET|BLINKIT|ZEPTO|DUNZO|DMART|RELIANCE FRESH|JIOMART|GROFERS|SWIGGY INSTAMART|MORE RETAIL|SPAR|NATURA|HYPERCITY|WALMART|COSTCO)\b', txt_u):
+        return "Daily Needs / Retail"
+
+    # ── Tier 1K: Travel & Transport ──────────────────────────────────────────
+    if re.search(r'\b(UBER|OLA CAB|RAPIDO|IRCTC|RAILWAY|AIRLINE|SPICEJET|INDIGO|AIR INDIA|MAKEMYTRIP|YATRA|OYO|GOIBIBO|PETROL|FUEL STATION|SHELL|BHARAT PETROLEUM|HP PETROL)\b', txt_u):
+        return "Travel & Transport"
+
+    # ── Tier 2: Person-name pattern detection → P2P Transfer ────────────────
+    # UPI pattern: UPI-FIRSTNAME LASTNAME-VPA@BANK
+    # Detect if the segment between first UPI- and the VPA looks like a person name
+    # (2+ words of 2+ letters, no merchant/brand indicators)
+    upi_name_m = re.match(r'UPI-([A-Z][A-Z ]{3,30})-', txt_u)
+    if upi_name_m:
+        candidate = upi_name_m.group(1).strip()
+        # Must be only alphabetic words (no numbers, no brand-like single words)
+        words = candidate.split()
+        is_person = (
+            len(words) >= 2
+            and all(re.match(r'^[A-Z]+$', w) for w in words)
+            and not re.search(r'\b(GOOGLE|AMAZON|FLIPKART|PAYTM|PHONE|HDFC|ICICI|AXIS|SBI|BANK|STORE|SHOP|MART|INDIA|PVT|LTD|CORP|ZEROX|AMUL|BLINKIT|ZOMATO|SWIGGY)\b', candidate)
+        )
+        if is_person:
+            return "Personal / P2P Transfer"
+
+    # Non-UPI: person name prefix patterns (RTGS/NEFT to individuals)
+    if re.search(r'\b(MR|MS|MRS|DR|SHRI|SHREE|KU|MISS)\s+[A-Z]{2,}\s+[A-Z]{2,}\b', txt_u):
+        return "Personal / P2P Transfer"
+
+    # ── Tier 3: Semantic embedding fallback with strict threshold ────────────
+    if emb is not None and sub_embeddings is not None and "Transaction Purpose" in sub_embeddings:
+        purp_sims = {
+            label: float(np.max(np.dot(sub_embeddings["Transaction Purpose"][label], emb)))
+            for label in SUB_TAXONOMY["Transaction Purpose"]
+        }
+        best_purp, purp_score = max(purp_sims.items(), key=lambda x: x[1])
+        # High threshold 0.75 to avoid false positives on ambiguous text
+        return best_purp if purp_score >= 0.75 else "General Transfer"
+
+    return "General Transfer"
 
 
 def extract_bank_institution(text: str, emb: np.ndarray, sub_embeddings: dict) -> str:
@@ -320,26 +480,66 @@ def extract_bank_institution(text: str, emb: np.ndarray, sub_embeddings: dict) -
     return best_bank if bank_score >= 0.65 else "Not Mentioned"
 
 
-def extract_counterparty(text: str) -> str:
-    txt_u = text.upper()
+def extract_counterparty(text: str, raw_text: str = None) -> str:
+    """
+    Extracts a human-readable counterparty from the raw description.
+    Priority: Known entity catalog → SELF → UPI person name → segment heuristic.
+    Uses raw_text when available (preserves UPI-NAME structure for accurate extraction).
+    """
+    # Use raw description when available for better name extraction
+    src = raw_text if raw_text else text
+    src_u = src.upper()
+
     for ent in KNOWN_ENTITIES:
-        if ent in txt_u:
+        if ent in src_u:
             return ent.title()
-    
-    if re.search(r'\bSELF\b', txt_u):
+
+    if re.search(r'\bSELF\b', src_u):
         return "Self"
-        
-    # Heuristic segment parsing
-    segments = [s.strip() for s in re.split(r'[-–—:]', text) if s.strip()]
+
+    # UPI: format is  UPI-NAME[-gpay_or_payid]-vpa@bank-IFSC
+    # Split by '-' and collect consecutive purely-alphabetic segments as the name.
+    # Stop at the first segment that contains digits or '@'.
+    if src_u.startswith('UPI-'):
+        body = src[4:]          # Strip 'UPI-'
+        segments = body.split('-')
+        name_parts = []
+        for seg in segments:
+            seg_s = seg.strip()
+            # A name segment: only letters and spaces, no '@', no leading digit, min 2 chars
+            if re.match(r'^[A-Za-z][A-Za-z ]*$', seg_s) and '@' not in seg_s and len(seg_s) >= 2:
+                name_parts.append(seg_s)
+            elif name_parts:
+                # Name collection ended — next segment broke the pattern
+                break
+        if name_parts:
+            full_name = ' '.join(name_parts).strip()
+            # Remove payment platform noise words
+            full_name = re.sub(
+                r'\b(GPAY|PAYTM|PHONEPE|BHIM|COLLECT REQUEST|UPI|DR|CR)\b',
+                '', full_name, flags=re.IGNORECASE
+            ).strip()
+            if len(full_name) >= 3:
+                return full_name.title()
+
+    # Heuristic segment parsing for non-UPI narrations (NEFT/RTGS/IMPS/Cheque)
+    segments = [s.strip() for s in re.split(r'[-\u2013\u2014:]', src) if s.strip()]
     for seg in reversed(segments):
+        # Strip VPA handles and bank noise
+        seg_clean = re.sub(r'\S*@\S+', '', seg)
         seg_clean = re.sub(
-            r'\b(UPI|CR|DR|NEFT|RTGS|IMPS|CASH|BNA|ATM|WDL|CHQ|PAID|MICR|INWARD|CLEARING|SALARY|RENT|TRF|BY|TRANSFER)\b',
-            '', seg, flags=re.IGNORECASE
+            r'\b(UPI|CR|DR|NEFT|RTGS|IMPS|CASH|BNA|ATM|WDL|CHQ|PAID|MICR|INWARD|CLEARING|SALARY|RENT|TRF|BY|TRANSFER|GPAY|PAYTM|PHONEPE|NONE|URGENT)\b',
+            '', seg_clean, flags=re.IGNORECASE
         ).strip()
-        if len(seg_clean) > 3 and not re.search(r'(BANK|CHARGES|SERVICE|STATEMENT|SUBSCRIPTION|PAYMENT|ACCTS)', seg_clean, flags=re.IGNORECASE):
-            return seg_clean.title()
-            
+        if (len(seg_clean) >= 4
+                and not seg_clean.strip().replace(' ', '').isdigit()
+                and not re.search(
+                    r'\b(BANK|CHARGES|SERVICE|STATEMENT|SUBSCRIPTION|PAYMENT|ACCTS|LIMITED|LTD|PVT|CORP)\b',
+                    seg_clean, flags=re.IGNORECASE)):
+            return seg_clean.strip().title()
+
     return "Not Specified"
+
 
 
 # ==============================================================================
@@ -436,13 +636,14 @@ def classify_excel_dataframe(
     parties = []
 
     for i, eval_txt in enumerate(eval_texts):
-        emb = norm_embeddings[i]
+        emb      = norm_embeddings[i]
+        raw_txt  = raw_descriptions[i]  # Raw text for UPI-NAME pattern matching
         row_dict = df.iloc[i].to_dict() if i < len(df) else None
         modes.append(extract_transaction_mode(eval_txt, emb, sub_embeddings))
         directions.append(extract_transaction_direction(eval_txt, emb, sub_embeddings, row=row_dict))
-        purposes.append(extract_transaction_purpose(eval_txt, emb, sub_embeddings))
+        purposes.append(extract_transaction_purpose(eval_txt, emb, sub_embeddings, raw_text=raw_txt))
         banks.append(extract_bank_institution(eval_txt, emb, sub_embeddings))
-        parties.append(extract_counterparty(eval_txt))
+        parties.append(extract_counterparty(eval_txt, raw_text=raw_txt))
 
     # 4. Construct updated DataFrame with original columns + 5 classified columns
     output_df = df.copy()
@@ -515,13 +716,14 @@ def classify_and_save_artifacts(
 
     modes, directions, purposes, banks, parties = [], [], [], [], []
     for i, eval_txt in enumerate(eval_texts):
-        emb = norm_embeddings[i]
+        emb      = norm_embeddings[i]
+        raw_txt  = raw_descriptions[i]  # Raw text for UPI-NAME pattern matching
         row_dict = df.iloc[i].to_dict() if i < len(df) else None
         modes.append(extract_transaction_mode(eval_txt, emb, sub_embeddings))
         directions.append(extract_transaction_direction(eval_txt, emb, sub_embeddings, row=row_dict))
-        purposes.append(extract_transaction_purpose(eval_txt, emb, sub_embeddings))
+        purposes.append(extract_transaction_purpose(eval_txt, emb, sub_embeddings, raw_text=raw_txt))
         banks.append(extract_bank_institution(eval_txt, emb, sub_embeddings))
-        parties.append(extract_counterparty(eval_txt))
+        parties.append(extract_counterparty(eval_txt, raw_text=raw_txt))
 
     output_df = df.copy()
     output_df["Transaction Mode"] = modes

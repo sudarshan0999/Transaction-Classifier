@@ -1,16 +1,43 @@
+# ==============================================================================
+# Python & Virtual Environment
+# ==============================================================================
 venv/
+.venv/
 __pycache__/
-*.pyc
-*xlsx
-*.npy
-*.csv
-*.npz
+*.py[cod]
+*$py.class
+*.ipynb_checkpoints/
+
+# ==============================================================================
+# Data, PDF Statements & Training Corpora (Sensitive & Large Files)
+# ==============================================================================
 data/
-.pdf
 training_data/
+*.pdf
+
+# ==============================================================================
+# Spreadsheets, Embeddings & Output Artifacts
+# ==============================================================================
+output/
+*.xlsx
+*.xls
+*.csv
+*.npy
+*.npz
 embedding_class_backup/
 scratch/
-# Allow requirements and package configuration files
+experiments/diagnostic_scripts/
+
+# ==============================================================================
+# Streamlit & IDE Cache
+# ==============================================================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ==============================================================================
+# Allowed Configuration Files (Explicit Whitelist)
+# ==============================================================================
 !requirements.txt
 !packages.txt
-!requirement.txt
